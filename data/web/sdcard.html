@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TF卡文件管理</title>
+    <link rel="stylesheet" href="/fs/sdcard.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>TF卡文件管理</h1>
+            <span class="version-info" id="versionInfo">v1.2.0</span>
+            <a href="/" class="back-link">← 返回主页</a>
+        </header>
+
+        <div class="info-bar">
+            <div class="storage-info">
+                <span>总容量: <strong id="total">--</strong></span>
+                <span>已用: <strong id="used">--</strong></span>
+                <span>可用: <strong id="free">--</strong></span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress"></div>
+            </div>
+        </div>
+
+        <nav class="path-nav">
+            <a href="#" onclick="navigateTo(''); return false;">根目录</a>
+            <span id="currentPath"></span>
+            <button class="upload-btn" onclick="triggerUpload()">上传文件</button>
+        </nav>
+
+        <!-- 上传表单（隐藏） -->
+        <form id="uploadForm" enctype="multipart/form-data" style="display: none;">
+            <input type="file" id="fileInput" name="file" accept="video/*,audio/*,image/*,.mp4,.mov,.avi,.mp3,.wav"
+                   onchange="handleFileSelect(this)">
+        </form>
+
+        <main class="file-list" id="fileList">
+            <div class="loading">加载中...</div>
+        </main>
+
+        <!-- 音频播放器 -->
+        <div class="audio-player" id="audioPlayer">
+            <div class="player-info">
+                <span class="player-icon">🎵</span>
+                <span class="player-name" id="playerName">--</span>
+            </div>
+            <audio id="audioElement" controls></audio>
+            <button class="player-close" onclick="closePlayer()">×</button>
+        </div>
+    </div>
+
+    <!-- 视频播放器弹窗 -->
+    <div class="video-player" id="videoPlayer">
+        <div class="video-header">
+            <span class="video-icon">🎬</span>
+            <span class="video-name" id="videoPlayerName">--</span>
+            <button class="video-close" onclick="closeVideoPlayer()">×</button>
+        </div>
+        <video id="videoElement" controls></video>
+    </div>
+
+    <!-- 图片预览弹窗 -->
+    <div class="preview-modal" id="previewModal">
+        <button class="preview-close" onclick="closePreview()">&times;</button>
+        <img id="previewImage" class="preview-content" src="" alt="Preview">
+        <div class="preview-name" id="previewName"></div>
+    </div>
+
+    <script src="/fs/sdcard.js"></script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+{
+    "ui": {
+        "theme": "light",
+        "language": "zh-CN",
+        "refresh_interval_ms": 2000,
+        "dashboard_layout": "grid",
+        "show_status_bar": true,
+        "animations_enabled": true
+    },
+    "features": {
+        "show_temperature": true,
+        "show_humidity": true,
+        "show_light": true,
+        "show_thermistor": true,
+        "show_storage": true,
+        "enable_pump_control": true,
+        "enable_servo_control": true,
+        "enable_auto_mode": false
+    },
+    "display": {
+        "temp_unit": "celsius",
+        "time_format": "24h",
+        "date_format": "YYYY-MM-DD",
+        "charts_type": "line",
+        "charts_history_points": 30
+    },
+    "alerts": {
+        "temp_high_threshold": 35.0,
+        "temp_low_threshold": 10.0,
+        "humidity_high_threshold": 80.0,
+        "humidity_low_threshold": 20.0,
+        "light_low_threshold": 50,
+        "alerts_enabled": false,
+        "sound_enabled": false
+    },
+    "presets": {
+        "pump_gears": [
+            {"name": "停止", "value": 0},
+            {"name": "低速", "value": 30},
+            {"name": "中速", "value": 60},
+            {"name": "高速", "value": 100}
+        ],
+        "servo_angles": [
+            {"name": "0°", "value": 0},
+            {"name": "45°", "value": 45},
+            {"name": "90°", "value": 90},
+            {"name": "135°", "value": 135},
+            {"name": "180°", "value": 180}
+        ],
+        "auto_actions": [
+            {"name": "自动灌溉", "enabled": false, "conditions": {"temp_above": 30, "humidity_below": 40}},
+            {"name": "夜间模式", "enabled": false, "conditions": {"light_below": 20}}
+        ]
+    },
+    "web": {
+        "captive_portal_enabled": true,
+        "ota_update_enabled": true,
+        "api_doc_enabled": false
+    },
+    "widgets": [
+        {
+            "id": "temp_humidity",
+            "type": "gauge",
+            "position": {"row": 0, "col": 0},
+            "size": {"w": 1, "h": 1},
+            "visible": true
+        },
+        {
+            "id": "light_sensor",
+            "type": "progress",
+            "position": {"row": 0, "col": 1},
+            "size": {"w": 1, "h": 1},
+            "visible": true
+        },
+        {
+            "id": "pump_control",
+            "type": "slider",
+            "position": {"row": 1, "col": 0},
+            "size": {"w": 1, "h": 1},
+            "visible": true
+        },
+        {
+            "id": "servo_control",
+            "type": "slider",
+            "position": {"row": 1, "col": 1},
+            "size": {"w": 1, "h": 1},
+            "visible": true
+        },
+        {
+            "id": "system_info",
+            "type": "info",
+            "position": {"row": 2, "col": 0},
+            "size": {"w": 2, "h": 1},
+            "visible": true
+        }
+    ]
+}
