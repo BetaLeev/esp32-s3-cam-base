@@ -82,6 +82,15 @@ esp_err_t sdcard_browse_dir(const char *dir_path, uint32_t *out_count,
 esp_err_t sdcard_get_file_info(const char *file_path, sdcard_file_info_t *out_info);
 
 /**
+ * @brief 获取文件大小（使用FatFS，更可靠）
+ * @param vfs_path VFS路径（如 /sdcard/file.txt）
+ * @param out_size 输出文件大小
+ * @param out_is_dir 输出是否为目录（可选）
+ * @return ESP_OK 成功，其他失败
+ */
+esp_err_t sdcard_get_file_size(const char *vfs_path, uint32_t *out_size, bool *out_is_dir);
+
+/**
  * @brief 检查文件扩展名是否为图片
  * @param filename 文件名
  * @return true 是图片，false 不是

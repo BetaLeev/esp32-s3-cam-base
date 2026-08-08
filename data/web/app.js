@@ -191,9 +191,6 @@ async function updateStatus() {
         document.getElementById('servoSlider').value = data.servo_angle;
         document.getElementById('servoDisplay').textContent = data.servo_angle;
 
-        // 数据版本号
-        document.getElementById('dataVersion').textContent = data.version || '--';
-
         // 更新硬件资源监控
         updateHardwareResources(data);
 

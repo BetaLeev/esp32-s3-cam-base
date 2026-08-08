@@ -4,18 +4,20 @@
  */
 
 #include "spiffs_web.h"
+#include "config.h"
 #include "esp_log.h"
 #include "esp_spiffs.h"
 #include <sys/stat.h>
 
 static const char *TAG = "SPIFFS_WEB";
+#define LOG_TAG TAG
 
 /**
  * @brief 初始化 Web 文件系统
  */
 esp_err_t spiffs_web_init(void)
 {
-    ESP_LOGI(TAG, "初始化 SPIFFS 文件系统...");
+    SPIFFS_LOGI(TAG, "初始化 SPIFFS 文件系统...");
 
     esp_vfs_spiffs_conf_t conf = {
         .base_path = WEBFS_BASE_PATH,

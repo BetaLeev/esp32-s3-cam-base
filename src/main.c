@@ -16,6 +16,7 @@
 
 #include "config.h"
 #include "wifi_app.h"
+#include "wifi_config.h"
 #include "lwip/ip_addr.h"
 #include "http_server.h"
 #include "spiffs_web.h"
@@ -25,8 +26,12 @@
 
 #include "sensors/sensors.h"
 #include "actuators/actuators.h"
+#include "video/video.h"
+#include "audio/audio.h"
+#include "audio/audio_web.h"
 
 static const char *TAG = "MAIN";
+#define LOG_TAG TAG
 
 /* 系统启动时间戳 */
 static int64_t g_system_start_time = 0;
@@ -48,7 +53,7 @@ static void update_hardware_resources(void)
     uint32_t flash_size = 0;
     if (esp_flash_get_size(esp_flash_default_chip, &flash_size) == ESP_OK) {
         g_system_status.flash_total = flash_size;
-        g_system_status.flash_free = flash_size;  // Flash整体大小，不做减法
+        g_system_status.flash_free = flash_size;
     }
 
     /* SPIFFS信息 - 从spiffs_web获取 */
@@ -75,7 +80,7 @@ static void update_hardware_resources(void)
     if (esp_clk_tree_src_get_freq_hz(SOC_MOD_CLK_CPU, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_freq_hz) == ESP_OK) {
         g_system_status.cpu_freq_mhz = cpu_freq_hz / 1000000;
     } else {
-        g_system_status.cpu_freq_mhz = 240;  // 默认240MHz
+        g_system_status.cpu_freq_mhz = 240;
     }
 
     /* 系统运行时间 */
@@ -113,127 +118,6 @@ system_status_t g_system_status = {
 };
 
 /**
- * @brief 打印系统启动信息
- */
-static void print_system_info(void)
-{
-    ESP_LOGI(TAG, "========================================");
-    ESP_LOGI(TAG, "ESP32-S3 智能水泵控制系统");
-    ESP_LOGI(TAG, "========================================");
-    ESP_LOGI(TAG, "硬件配置:");
-    ESP_LOGI(TAG, "  - 主控芯片: ESP32-S3");
-    ESP_LOGI(TAG, "  - 电机驱动: TB6612");
-    ESP_LOGI(TAG, "  - 传感器: 热敏电阻 + 光敏电阻 + DHT11");
-    ESP_LOGI(TAG, "  - 执行器: SG90舵机");
-    ESP_LOGI(TAG, "GPIO配置:");
-    ESP_LOGI(TAG, "  - 水泵 PWMA: GPIO%d", MOTOR_PWMA_PIN);
-    ESP_LOGI(TAG, "  - 水泵 AIN1: GPIO%d", MOTOR_AIN1_PIN);
-    ESP_LOGI(TAG, "  - 水泵 AIN2: GPIO%d", MOTOR_AIN2_PIN);
-    ESP_LOGI(TAG, "  - 舵机: GPIO%d", SERVO_GPIO);
-    ESP_LOGI(TAG, "  - 热敏电阻: GPIO%d", THERMISTOR_GPIO);
-    ESP_LOGI(TAG, "  - 光敏电阻: GPIO%d", PHOTOSENSOR_GPIO);
-    ESP_LOGI(TAG, "  - DHT11: GPIO%d", DHT11_PIN);
-    ESP_LOGI(TAG, "Wi-Fi配置:");
-    ESP_LOGI(TAG, "  - 模式: AP+STA共存模式");
-    ESP_LOGI(TAG, "  - AP SSID: %s", WIFI_SSID);
-    ESP_LOGI(TAG, "  - AP IP: %d.%d.%d.%d", WIFI_AP_IP_1, WIFI_AP_IP_2, WIFI_AP_IP_3, WIFI_AP_IP_4);
-    ESP_LOGI(TAG, "  - AP密码: %s", WIFI_PASSWORD);
-    ESP_LOGI(TAG, "  - STA目标Wi-Fi: %s", WIFI_STA_SSID);
-    ESP_LOGI(TAG, "========================================");
-}
-
-/**
- * @brief 系统初始化
- */
-static esp_err_t system_init(void)
-{
-    esp_err_t ret;
-
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, ">>> [1/10] 初始化NVS Flash...");
-    ret = nvs_flash_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "    [失败] NVS Flash: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    ESP_LOGI(TAG, "    [成功] NVS Flash");
-
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, ">>> [2/9] 初始化执行器模块(舵机+电机)...");
-    ret = actuators_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "    [失败] 执行器模块: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    ESP_LOGI(TAG, "    [成功] 执行器模块");
-
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, ">>> [3/9] 初始化传感器模块...");
-    ret = sensors_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "    [失败] 传感器模块: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    ESP_LOGI(TAG, "    [成功] 传感器模块");
-
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, ">>> [4/9] 初始化TF卡...");
-    ret = sdcard_init();
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "    [警告] TF卡初始化失败，将继续运行");
-    } else {
-        ESP_LOGI(TAG, "    [成功] TF卡");
-    }
-
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, ">>> [5/9] 初始化Wi-Fi热点...");
-    ret = wifi_app_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "    [失败] Wi-Fi: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    ESP_LOGI(TAG, "    [成功] Wi-Fi热点");
-
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, ">>> [6/9] 启动DNS服务器(Captive Portal)...");
-    ret = dns_server_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "    [失败] DNS服务器: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    ESP_LOGI(TAG, "    [成功] DNS服务器");
-
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, ">>> [7/9] 初始化SPIFFS文件系统...");
-    ret = spiffs_web_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "    [失败] SPIFFS: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    ESP_LOGI(TAG, "    [成功] SPIFFS文件系统");
-
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, ">>> [8/9] 启动HTTP服务器...");
-    ret = http_server_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "    [失败] HTTP服务器: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    ESP_LOGI(TAG, "    [成功] HTTP服务器");
-
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, ">>> [9/9] 创建传感器读取任务...");
-    ret = sensors_create_task();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "    [失败] 传感器任务: %s", esp_err_to_name(ret));
-        return ret;
-    }
-    ESP_LOGI(TAG, "    [成功] 传感器读取任务");
-
-    return ESP_OK;
-}
-
-/**
  * @brief 格式化字节数为可读字符串
  */
 static void format_bytes(uint64_t bytes, char *buf, size_t buf_size)
@@ -254,76 +138,14 @@ static void format_bytes(uint64_t bytes, char *buf, size_t buf_size)
  */
 static void app_main_task(void *pvParameters)
 {
-    uint32_t loop_count = 0;
-
-    ESP_LOGI(TAG, "应用主任务启动");
+    MAIN_LOGI(TAG, "应用主任务启动");
 
     /* 等待系统稳定 */
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     while (1) {
-        loop_count++;
-
         /* 更新硬件资源监控 */
         update_hardware_resources();
-
-        /* 每10秒打印一次状态 */
-        if (loop_count % 2 == 0) {
-            char ip_str[32];
-            char dram_free_str[32], dram_total_str[32];
-            char psram_free_str[32], psram_total_str[32];
-            char flash_total_str[32];
-            char spiffs_free_str[32], spiffs_total_str[32];
-            char sdcard_free_str[32], sdcard_total_str[32];
-
-            wifi_app_get_ip_string(ip_str, sizeof(ip_str));
-            format_bytes(g_system_status.dram_total, dram_total_str, sizeof(dram_total_str));
-            format_bytes(g_system_status.dram_free, dram_free_str, sizeof(dram_free_str));
-            format_bytes(g_system_status.psram_total, psram_total_str, sizeof(psram_total_str));
-            format_bytes(g_system_status.psram_free, psram_free_str, sizeof(psram_free_str));
-            format_bytes(g_system_status.flash_total, flash_total_str, sizeof(flash_total_str));
-            format_bytes(g_system_status.spiffs_total, spiffs_total_str, sizeof(spiffs_total_str));
-            format_bytes(g_system_status.spiffs_free, spiffs_free_str, sizeof(spiffs_free_str));
-            format_bytes(g_system_status.sdcard_total, sdcard_total_str, sizeof(sdcard_total_str));
-            format_bytes(g_system_status.sdcard_free, sdcard_free_str, sizeof(sdcard_free_str));
-
-            ESP_LOGI(TAG, "--- 系统状态 ---");
-            ESP_LOGI(TAG, "IP: %s", ip_str);
-            ESP_LOGI(TAG, "热敏: %.1fC  光敏: %.0flux  DHT11: %.1fC/%.1f%%",
-                    g_system_status.thermistor_temp,
-                    g_system_status.light,
-                    g_system_status.dht11_temp,
-                    g_system_status.dht11_humidity);
-            ESP_LOGI(TAG, "水泵: %s  速度: %d%%  舵机: %d°",
-                    g_system_status.pump_state ? "开启" : "关闭",
-                    g_system_status.pump_speed,
-                    g_system_status.servo_angle);
-            ESP_LOGI(TAG, "--- 硬件资源 ---");
-            ESP_LOGI(TAG, "DRAM: %s / %s (%.1f%% used)",
-                    dram_free_str, dram_total_str,
-                    g_system_status.dram_total > 0 ?
-                    (100.0f * (g_system_status.dram_total - g_system_status.dram_free) / g_system_status.dram_total) : 0);
-            if (g_system_status.psram_total > 0) {
-                ESP_LOGI(TAG, "PSRAM: %s / %s (%.1f%% used)",
-                        psram_free_str, psram_total_str,
-                        (100.0f * (g_system_status.psram_total - g_system_status.psram_free) / g_system_status.psram_total));
-            } else {
-                ESP_LOGI(TAG, "PSRAM: 无");
-            }
-            ESP_LOGI(TAG, "Flash: %s", flash_total_str);
-            ESP_LOGI(TAG, "SPIFFS: %s / %s",
-                    spiffs_free_str, spiffs_total_str);
-            if (g_system_status.sdcard_mounted) {
-                ESP_LOGI(TAG, "TF卡: %s / %s (已挂载)",
-                        sdcard_free_str, sdcard_total_str);
-            } else {
-                ESP_LOGI(TAG, "TF卡: 未挂载");
-            }
-            ESP_LOGI(TAG, "CPU: %lu MHz  运行时间: %lu秒",
-                    (unsigned long)g_system_status.cpu_freq_mhz,
-                    (unsigned long)g_system_status.uptime_seconds);
-            ESP_LOGI(TAG, "-----------------");
-        }
 
         /* 延时5秒 */
         vTaskDelay(pdMS_TO_TICKS(5000));
@@ -338,31 +160,85 @@ void app_main(void)
     /* 记录系统启动时间 */
     g_system_start_time = esp_timer_get_time();
 
-    /* 打印系统信息 */
-    print_system_info();
-
-    /* 系统初始化 */
-    esp_err_t ret = system_init();
+    /* 初始化NVS Flash */
+    esp_err_t ret = nvs_flash_init();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "系统初始化失败，错误码: %s", esp_err_to_name(ret));
-        ESP_LOGI(TAG, "系统将重启...");
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        esp_restart();
+        MAIN_LOGE(TAG, "NVS Flash初始化失败: %s", esp_err_to_name(ret));
+        return;
     }
 
-    ESP_LOGI(TAG, "========================================");
-    ESP_LOGI(TAG, "         系统初始化成功！");
-    ESP_LOGI(TAG, "========================================");
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, "  请连接Wi-Fi热点: %s", WIFI_SSID);
-    ESP_LOGI(TAG, "  密码: %s", WIFI_PASSWORD);
-    ESP_LOGI(TAG, "  热点IP: %d.%d.%d.%d", WIFI_AP_IP_1, WIFI_AP_IP_2, WIFI_AP_IP_3, WIFI_AP_IP_4);
-    ESP_LOGI(TAG, "  HTTP端口: %d", HTTP_PORT);
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, "  在浏览器中访问: http://%d.%d.%d.%d:%d",
-             WIFI_AP_IP_1, WIFI_AP_IP_2, WIFI_AP_IP_3, WIFI_AP_IP_4, HTTP_PORT);
-    ESP_LOGI(TAG, "");
-    ESP_LOGI(TAG, "========================================");
+    /* 初始化执行器模块 */
+    ret = actuators_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGE(TAG, "执行器模块初始化失败: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    /* 初始化传感器模块 */
+    ret = sensors_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGE(TAG, "传感器模块初始化失败: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    /* 启动摄像头视频模块异步初始化（后台执行，不阻塞） */
+    ret = video_init_async();
+    if (ret != ESP_OK) {
+        MAIN_LOGW(TAG, "摄像头异步任务创建失败 (0x%x)", ret);
+    } else {
+        MAIN_LOGI(TAG, "摄像头异步初始化已启动");
+    }
+
+    /* 初始化Wi-Fi热点 */
+    ret = wifi_app_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGE(TAG, "Wi-Fi初始化失败: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    /* 初始化Wi-Fi配置管理 */
+    ret = wifi_config_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGW(TAG, "Wi-Fi配置管理初始化失败: %s", esp_err_to_name(ret));
+    }
+
+    /* 启动DNS服务器 */
+    ret = dns_server_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGE(TAG, "DNS服务器启动失败: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    /* 初始化SPIFFS文件系统 */
+    ret = spiffs_web_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGE(TAG, "SPIFFS初始化失败: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    /* 启动HTTP服务器（必须在TF卡之前，以便处理TF卡错误） */
+    ret = http_server_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGE(TAG, "HTTP服务器启动失败: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    /* 初始化TF卡（失败不影响系统运行） */
+    ret = sdcard_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGW(TAG, "TF卡初始化失败，系统将继续运行（SD卡相关功能不可用）");
+    } else {
+        MAIN_LOGI(TAG, "TF卡初始化成功");
+    }
+
+    /* 创建传感器读取任务 */
+    ret = sensors_create_task();
+    if (ret != ESP_OK) {
+        MAIN_LOGE(TAG, "传感器任务创建失败: %s", esp_err_to_name(ret));
+    }
+
+    /* 音频模块暂时禁用 - I2S 引脚 GPIO19/20 与 USB D-/D+ 冲突，需重新分配引脚 */
+    MAIN_LOGI(TAG, "[阶段1] 音频模块暂禁用 (GPIO19/20 与 USB 冲突)");
 
     /* 创建应用主任务 */
     BaseType_t task_ret = xTaskCreate(
@@ -375,6 +251,6 @@ void app_main(void)
     );
 
     if (task_ret != pdPASS) {
-        ESP_LOGE(TAG, "创建应用主任务失败");
+        MAIN_LOGE(TAG, "创建应用主任务失败");
     }
 }

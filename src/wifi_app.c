@@ -15,6 +15,7 @@
 #include "freertos/task.h"
 
 static const char *TAG = "WIFI_APP";
+#define LOG_TAG TAG
 
 static esp_netif_t *g_ap_netif = NULL;
 static esp_netif_t *g_sta_netif = NULL;
@@ -28,7 +29,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT) {
         switch (event_id) {
             case WIFI_EVENT_AP_START:
-                ESP_LOGI(TAG, "AP热点已启动");
+                WIFI_LOGI(TAG, "AP热点已启动");
                 break;
 
             case WIFI_EVENT_AP_STOP:
@@ -140,7 +141,9 @@ esp_err_t wifi_app_init(void)
     ESP_LOGI(TAG, "开始初始化Wi-Fi (AP+STA共存模式)...");
 
     /* 初始化网络接口 */
+    ESP_LOGI(TAG, "  >>> esp_netif_init()...");
     ret = esp_netif_init();
+    ESP_LOGI(TAG, "  <<< esp_netif_init() = %s", esp_err_to_name(ret));
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "esp_netif_init失败: %s", esp_err_to_name(ret));
         return ret;
@@ -181,6 +184,17 @@ esp_err_t wifi_app_init(void)
         ESP_LOGE(TAG, "创建STA网络接口失败");
         return ESP_FAIL;
     }
+
+    /* 配置STA静态IP（如果启用） */
+#if (WIFI_STA_STATIC_IP_1 != 0)
+    esp_netif_dhcpc_stop(g_sta_netif);
+    esp_netif_ip_info_t sta_ip_info;
+    IP4_ADDR(&sta_ip_info.ip, WIFI_STA_STATIC_IP_1, WIFI_STA_STATIC_IP_2, WIFI_STA_STATIC_IP_3, WIFI_STA_STATIC_IP_4);
+    IP4_ADDR(&sta_ip_info.gw, WIFI_STA_STATIC_GW_1, WIFI_STA_STATIC_GW_2, WIFI_STA_STATIC_GW_3, WIFI_STA_STATIC_GW_4);
+    IP4_ADDR(&sta_ip_info.netmask, WIFI_STA_STATIC_NETMASK_1, WIFI_STA_STATIC_NETMASK_2, WIFI_STA_STATIC_NETMASK_3, WIFI_STA_STATIC_NETMASK_4);
+    ESP_ERROR_CHECK(esp_netif_set_ip_info(g_sta_netif, &sta_ip_info));
+    ESP_LOGI(TAG, "STA使用静态IP: %d.%d.%d.%d", WIFI_STA_STATIC_IP_1, WIFI_STA_STATIC_IP_2, WIFI_STA_STATIC_IP_3, WIFI_STA_STATIC_IP_4);
+#endif
 
     /* 配置Wi-Fi初始化参数 */
     wifi_init_config_t init_config = WIFI_INIT_CONFIG_DEFAULT();
@@ -279,7 +293,7 @@ esp_err_t wifi_app_init(void)
     /* 创建Wi-Fi监控任务 */
     ret = xTaskCreate(wifi_monitor_task, "wifi_monitor", 2048, NULL, 3, NULL);
     if (ret != pdPASS) {
-        ESP_LOGW(TAG, "创建Wi-Fi监控任务失败");
+        WIFI_LOGW(TAG, "创建Wi-Fi监控任务失败");
     } else {
         ESP_LOGI(TAG, "Wi-Fi监控任务已创建");
     }

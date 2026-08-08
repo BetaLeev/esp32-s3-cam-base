@@ -23,7 +23,7 @@
 
 #define ADC_PHOTOSENSOR_ATTE   ADC_ATTEN_DB_11       /**< 0-3300mV */
 #define ADC_PHOTOSENSOR_WIDTH  ADC_BITWIDTH_12       /**< 12位精度 */
-#define ADC_PHOTOSENSOR_CHANNEL ADC_CHANNEL_2         /**< GPIO3 */
+#define ADC_PHOTOSENSOR_CHANNEL ADC_CHANNEL_6         /**< GPIO7 */
 
 /* ========================================
  * ADC 采样配置

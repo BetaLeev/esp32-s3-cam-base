@@ -28,7 +28,7 @@
  * ======================================== */
 #define DHT11_RETRY_COUNT        15          /**< 最大重试次数 */
 #define DHT11_RETRY_INTERVAL_MS  100         /**< 重试间隔 */
-#define DHT11_TIMEOUT_US         10000       /**< 超时时间 */
+/* DHT11_TIMEOUT_US 在 sensors/dht11/dht11.h 中定义 */
 
 /* ========================================
  * 设备标识

@@ -33,6 +33,11 @@ const audioExtensions = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'];
  * 导航到指定目录
  */
 function navigateTo(path) {
+    // 导航前先停止播放器，避免卡顿
+    closePlayer();
+    closeVideoPlayer();
+    closePreview();
+
     currentPath = path;
     loadFiles();
     // 更新 URL 而不刷新页面
@@ -49,7 +54,8 @@ async function loadInfo() {
         if (!response.ok) {
             throw new Error('API请求失败');
         }
-        const data = await response.json();
+        const result = await response.json();
+        const data = result.data || result;
 
         const totalEl = document.getElementById('total');
         const usedEl = document.getElementById('used');
@@ -58,15 +64,15 @@ async function loadInfo() {
 
         if (!totalEl || !usedEl || !freeEl || !progressEl) return;
 
-        // 检查挂载状态 - API返回字符串 "true"/"false"
+        // 检查挂载状态
         const isMounted = data.mounted === true || data.mounted === 'true';
 
         if (isMounted) {
             totalEl.textContent = formatBytes(data.total);
-            usedEl.textContent = formatBytes(data.used);
+            usedEl.textContent = formatBytes(data.used || (data.total - data.free));
             freeEl.textContent = formatBytes(data.free);
 
-            const percent = data.total > 0 ? (data.used / data.total) * 100 : 0;
+            const percent = data.total > 0 ? ((data.used || (data.total - data.free)) / data.total) * 100 : 0;
             progressEl.style.width = percent + '%';
             progressEl.parentElement.style.display = 'block';
         } else {
@@ -154,10 +160,11 @@ async function loadFiles() {
             throw new Error('请求失败: ' + response.status);
         }
 
-        const data = await response.json();
+        const result = await response.json();
+        const data = result.data || result;
 
-        if (data.error) {
-            list.innerHTML = '<div class="empty">' + data.error + '</div>';
+        if (result.status === 'error') {
+            list.innerHTML = '<div class="empty">' + escapeHtml(result.message || '加载失败') + '</div>';
             return;
         }
 
@@ -183,15 +190,19 @@ async function loadFiles() {
             const icon = icons[getIconType(f.name, f.is_dir)] || icons.file;
             const fullPath = currentPath ? currentPath + '/' + f.name : f.name;
             const iconType = getIconType(f.name, f.is_dir);
-            
-            // 直接使用后端返回的 URL
-            const fileUrl = f.url || fullPath;
+
+            // 使用后端返回的url字段，或自行构建
+            const fileUrl = (f.url && f.url.length > 0) ? encodeURIComponent(f.url) : encodeURIComponent(fullPath);
+
+            console.log('[SDCard] 文件项:', { name: f.name, iconType, fullPath, fileUrl, size: f.size });
 
             let itemClass = 'file-item';
             if (f.is_dir) {
                 itemClass += ' directory';
             } else if (iconType === 'audio') {
                 itemClass += ' audio-file';
+            } else if (iconType === 'image') {
+                itemClass += ' image-file';
             } else if (iconType === 'video') {
                 itemClass += ' video-file';
             }
@@ -202,7 +213,9 @@ async function loadFiles() {
             html += '<span class="file-icon">' + icon + '</span>';
             html += '<div class="file-name" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</div>';
             html += '<div class="file-meta">';
-            html += '<span>' + (f.is_dir ? '--' : f.size_str) + '</span>';
+            // 文件夹显示 --，文件显示格式化大小
+            html += '<span>' + (f.is_dir ? '--' : formatBytes(f.size)) + '</span>';
+            html += '<button class="delete-btn" onclick="event.stopPropagation(); confirmDelete(\'' + escapeQuote(fullPath) + '\',\'' + escapeQuote(f.name) + '\')" title="删除">🗑️</button>';
             html += '</div></div>';
         }
 
@@ -217,6 +230,16 @@ async function loadFiles() {
  * 处理文件点击
  */
 function handleFileClick(name, iconType, path) {
+    // 解码用于显示
+    const decodedPath = decodeURIComponent(path);
+    console.log('[SDCard] handleFileClick:', {
+        name: name,
+        iconType: iconType,
+        path: path,
+        decodedPath: decodedPath,
+        fullUrl: '/fs/files?path=' + path
+    });
+
     switch (iconType) {
         case 'image':
             openImagePreview(name, path);
@@ -234,6 +257,7 @@ function handleFileClick(name, iconType, path) {
 
 /**
  * 打开图片预览
+ * @param path 已经是URL编码后的路径
  */
 function openImagePreview(name, path) {
     const previewImage = document.getElementById('previewImage');
@@ -242,16 +266,42 @@ function openImagePreview(name, path) {
 
     if (!previewImage || !previewModal) return;
 
-    // 使用查询参数方式传递路径，避免 URI 编码问题
-    const src = '/fs/files?path=' + encodeURIComponent(path);
+    const src = '/fs/files?path=' + path + '&t=' + Date.now();
 
+    console.log('[SDCard] 预览图片:', { name, src });
+
+    // 释放之前的blob URL
+    if (previewImage.src && previewImage.src.startsWith('blob:')) {
+        URL.revokeObjectURL(previewImage.src);
+    }
+
+    // 显示加载中状态
+    if (previewName) previewName.textContent = name + ' (加载中...)';
     previewImage.src = src;
-    if (previewName) previewName.textContent = name;
     previewModal.classList.add('active');
+
+    // 加载完成
+    previewImage.onload = function() {
+        console.log('[SDCard] 图片加载成功');
+        if (previewName) previewName.textContent = name;
+    };
+
+    // 加载失败
+    previewImage.onerror = function() {
+        console.error('[SDCard] 图片加载失败:', src);
+        if (previewName) previewName.textContent = '加载失败';
+        const errorDiv = document.getElementById('previewError');
+        if (errorDiv) {
+            errorDiv.textContent = '图片加载失败，请重试';
+            errorDiv.style.display = 'block';
+            setTimeout(() => { errorDiv.style.display = 'none'; }, 3000);
+        }
+    };
 }
 
 /**
  * 播放音频
+ * @param path 已经是URL编码后的路径
  */
 function playAudio(name, path) {
     const audioPlayer = document.getElementById('audioPlayer');
@@ -260,33 +310,36 @@ function playAudio(name, path) {
 
     if (!audioPlayer || !audioElement) return;
 
-    // 使用查询参数方式传递路径，避免 URI 编码问题
-    const src = '/fs/files?path=' + encodeURIComponent(path);
+    const src = '/fs/files?path=' + path + '&t=' + Date.now();
 
-    console.log('[SDCard] playAudio:', { name: name, path: path, src: src });
+    console.log('[SDCard] playAudio:', { name, src });
 
+    // 释放之前的blob URL
+    if (audioElement.src && audioElement.src.startsWith('blob:')) {
+        URL.revokeObjectURL(audioElement.src);
+    }
+
+    if (playerName) playerName.textContent = name + ' (加载中...)';
     audioElement.src = src;
-    audioElement.load(); // 重新加载音频
-    if (playerName) playerName.textContent = name;
+    audioElement.load();
     audioPlayer.classList.add('active');
 
-    // 等待加载完成后播放
     audioElement.oncanplay = function() {
-        audioElement.play().catch(e => {
-            console.error('播放失败:', e);
-        });
+        console.log('[SDCard] 音频可以播放');
+        if (playerName) playerName.textContent = name;
+        audioElement.play().catch(e => console.error('播放失败:', e));
     };
 
-    // 错误处理
     audioElement.onerror = function() {
         console.error('[SDCard] 音频加载失败:', src);
-        console.error('[SDCard] 音频错误码:', audioElement.error ? audioElement.error.code : 'unknown');
-        alert('音频加载失败，请检查文件是否存在\n路径: ' + src);
+        if (playerName) playerName.textContent = '加载失败';
+        alert('音频加载失败: ' + name);
     };
 }
 
 /**
  * 播放视频
+ * @param path 已经是URL编码后的路径
  */
 function playVideo(name, path) {
     const videoPlayer = document.getElementById('videoPlayer');
@@ -295,28 +348,30 @@ function playVideo(name, path) {
 
     if (!videoPlayer || !videoElement) return;
 
-    // 使用查询参数方式传递路径，避免 URI 编码问题
-    const src = '/fs/files?path=' + encodeURIComponent(path);
+    const src = '/fs/files?path=' + path + '&t=' + Date.now();
 
-    console.log('[SDCard] playVideo:', { name: name, path: path, src: src });
+    console.log('[SDCard] playVideo:', { name, src });
 
+    // 释放之前的blob URL
+    if (videoElement.src && videoElement.src.startsWith('blob:')) {
+        URL.revokeObjectURL(videoElement.src);
+    }
+
+    if (playerName) playerName.textContent = name + ' (加载中...)';
     videoElement.src = src;
-    videoElement.load(); // 重新加载视频
-    if (playerName) playerName.textContent = name;
+    videoElement.load();
     videoPlayer.classList.add('active');
 
-    // 等待加载完成后播放
     videoElement.oncanplay = function() {
-        videoElement.play().catch(e => {
-            console.error('视频播放失败:', e);
-        });
+        console.log('[SDCard] 视频可以播放');
+        if (playerName) playerName.textContent = name;
+        videoElement.play().catch(e => console.error('视频播放失败:', e));
     };
 
-    // 错误处理
     videoElement.onerror = function() {
         console.error('[SDCard] 视频加载失败:', src);
-        console.error('[SDCard] 视频错误码:', videoElement.error ? videoElement.error.code : 'unknown');
-        alert('视频加载失败，请检查文件是否存在\n路径: ' + src);
+        if (playerName) playerName.textContent = '加载失败';
+        alert('视频加载失败: ' + name);
     };
 }
 
@@ -330,6 +385,11 @@ function closePlayer() {
     if (audioElement) {
         audioElement.pause();
         audioElement.currentTime = 0;
+        // 释放blob URL
+        if (audioElement.src && audioElement.src.startsWith('blob:')) {
+            URL.revokeObjectURL(audioElement.src);
+        }
+        audioElement.src = '';
     }
     if (audioPlayer) {
         audioPlayer.classList.remove('active');
@@ -346,6 +406,11 @@ function closeVideoPlayer() {
     if (videoElement) {
         videoElement.pause();
         videoElement.currentTime = 0;
+        // 释放blob URL
+        if (videoElement.src && videoElement.src.startsWith('blob:')) {
+            URL.revokeObjectURL(videoElement.src);
+        }
+        videoElement.src = '';
     }
     if (videoPlayer) {
         videoPlayer.classList.remove('active');
@@ -354,10 +419,11 @@ function closeVideoPlayer() {
 
 /**
  * 下载文件
+ * @param path 已经是URL编码后的路径
  */
 function downloadFile(path) {
-    // 使用查询参数方式传递路径，避免 URI 编码问题
-    const url = '/fs/files?path=' + encodeURIComponent(path);
+    // path 已经是后端URL编码后的路径，直接使用
+    const url = '/fs/files?path=' + path;
     window.open(url, '_blank');
 }
 
@@ -366,8 +432,14 @@ function downloadFile(path) {
  */
 function closePreview() {
     const previewModal = document.getElementById('previewModal');
+    const previewImage = document.getElementById('previewImage');
     if (previewModal) {
         previewModal.classList.remove('active');
+    }
+    // 释放blob URL
+    if (previewImage && previewImage.src && previewImage.src.startsWith('blob:')) {
+        URL.revokeObjectURL(previewImage.src);
+        previewImage.src = '';
     }
 }
 
@@ -400,7 +472,8 @@ function handleFileSelect(input) {
 async function checkSpaceAndUpload(file) {
     try {
         const response = await fetch('/api/sdcard/info');
-        const data = await response.json();
+        const result = await response.json();
+        const data = result.data || result;
 
         if (file.size > data.free) {
             alert('磁盘空间不足！\n文件大小: ' + formatBytes(file.size) + '\n可用空间: ' + formatBytes(data.free));
@@ -419,9 +492,6 @@ async function checkSpaceAndUpload(file) {
  * 上传文件
  */
 async function uploadFile(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
     // 显示上传进度
     showUploadProgress(file.name, file.size);
 
@@ -440,9 +510,14 @@ async function uploadFile(file) {
         xhr.onload = function() {
             if (xhr.status === 200 || xhr.status === 201) {
                 hideUploadProgress();
-                alert('上传成功！\n' + file.name);
-                // 刷新文件列表
-                loadFiles();
+                const result = JSON.parse(xhr.responseText);
+                if (result.status === 'success') {
+                    alert('上传成功！\n' + file.name);
+                    loadFiles();
+                    loadInfo();
+                } else {
+                    alert('上传失败: ' + (result.message || '未知错误'));
+                }
             } else {
                 hideUploadProgress();
                 alert('上传失败: ' + xhr.status);
@@ -455,10 +530,10 @@ async function uploadFile(file) {
             alert('上传失败，请检查网络连接');
         };
 
-        // 发送请求 - 文件名通过 URL 参数传递
-        const uploadUrl = '/fs/upload?path=' + encodeURIComponent(currentPath) + '&filename=' + encodeURIComponent(file.name);
+        // 发送请求 - 使用正确的API路径，发送raw binary
+        const uploadUrl = '/api/sdcard/upload?path=' + encodeURIComponent(currentPath) + '&filename=' + encodeURIComponent(file.name);
         xhr.open('POST', uploadUrl);
-        xhr.send(formData);
+        xhr.send(file);  // 直接发送File对象（raw binary）
 
     } catch (e) {
         hideUploadProgress();
@@ -602,3 +677,99 @@ window.addEventListener('popstate', function(e) {
     }
     loadFiles();
 });
+
+/**
+ * 确认删除文件/目录
+ */
+function confirmDelete(path, name) {
+    const type = name.includes('.') ? '文件' : '文件夹';
+    if (confirm('确定要删除 ' + type + ' "' + name + '" 吗？\n此操作不可恢复！')) {
+        deleteItem(path);
+    }
+}
+
+/**
+ * 删除文件或目录
+ */
+async function deleteItem(path) {
+    try {
+        const response = await fetch('/api/sdcard/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: path })
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            alert('删除成功');
+            loadFiles();
+            loadInfo();
+        } else {
+            alert('删除失败: ' + (result.message || '未知错误'));
+        }
+    } catch (e) {
+        console.error('删除失败:', e);
+        alert('删除失败: ' + e.message);
+    }
+}
+
+/**
+ * 显示创建目录弹窗
+ */
+function showMkdirDialog() {
+    const modal = document.getElementById('mkdirModal');
+    const input = document.getElementById('mkdirInput');
+    if (modal) {
+        modal.style.display = 'flex';
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+    }
+}
+
+/**
+ * 隐藏创建目录弹窗
+ */
+function hideMkdirDialog() {
+    const modal = document.getElementById('mkdirModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * 创建目录
+ */
+async function createDirectory() {
+    const input = document.getElementById('mkdirInput');
+    if (!input) return;
+
+    const name = input.value.trim();
+    if (!name) {
+        alert('请输入文件夹名称');
+        return;
+    }
+
+    // 构建完整路径
+    const dirPath = currentPath ? currentPath + '/' + name : name;
+
+    try {
+        const response = await fetch('/api/sdcard/mkdir', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: dirPath })
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            hideMkdirDialog();
+            loadFiles();
+        } else {
+            alert('创建失败: ' + (result.message || '未知错误'));
+        }
+    } catch (e) {
+        console.error('创建目录失败:', e);
+        alert('创建失败: ' + e.message);
+    }
+}

@@ -21,6 +21,7 @@
 #include "arpa/inet.h"
 
 static const char *TAG = "DNS_SERVER";
+#define LOG_TAG TAG
 
 /* DNS服务器句柄 */
 static TaskHandle_t dns_server_task_handle = NULL;
@@ -51,7 +52,7 @@ static void dns_server_task(void *pvParameters)
     // 创建UDP socket
     sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0) {
-        ESP_LOGE(TAG, "创建DNS socket失败");
+        DNS_LOGE(TAG, "创建DNS socket失败");
         vTaskDelete(NULL);
         return;
     }
@@ -147,7 +148,7 @@ static void dns_server_task(void *pvParameters)
 esp_err_t dns_server_init(void)
 {
     if (dns_server_task_handle != NULL) {
-        ESP_LOGW(TAG, "DNS服务器已经在运行");
+        DNS_LOGW(TAG, "DNS服务器已经在运行");
         return ESP_OK;
     }
 

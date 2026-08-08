@@ -29,7 +29,20 @@
             <a href="#" onclick="navigateTo(''); return false;">根目录</a>
             <span id="currentPath"></span>
             <button class="upload-btn" onclick="triggerUpload()">上传文件</button>
+            <button class="upload-btn" onclick="showMkdirDialog()">新建文件夹</button>
         </nav>
+
+        <!-- 创建目录弹窗 -->
+        <div class="preview-modal" id="mkdirModal" style="display: none;">
+            <div class="mkdir-dialog">
+                <h3>新建文件夹</h3>
+                <input type="text" id="mkdirInput" placeholder="文件夹名称" />
+                <div class="mkdir-buttons">
+                    <button onclick="hideMkdirDialog()">取消</button>
+                    <button class="primary" onclick="createDirectory()">创建</button>
+                </div>
+            </div>
+        </div>
 
         <!-- 上传表单（隐藏） -->
         <form id="uploadForm" enctype="multipart/form-data" style="display: none;">
@@ -65,10 +78,25 @@
     <!-- 图片预览弹窗 -->
     <div class="preview-modal" id="previewModal">
         <button class="preview-close" onclick="closePreview()">&times;</button>
-        <img id="previewImage" class="preview-content" src="" alt="Preview">
+        <img id="previewImage" class="preview-content" src="" alt="Preview"
+             onload="console.log('[IMG] 加载成功')"
+             onerror="console.error('[IMG] 加载失败，src:', this.src)">
         <div class="preview-name" id="previewName"></div>
+        <div class="preview-error" id="previewError" style="display:none; color: red; text-align: center; padding: 10px;"></div>
     </div>
 
     <script src="/fs/sdcard.js"></script>
+    <script>
+        // 测试：点击图片时打印详细信息
+        document.addEventListener('click', function(e) {
+            const target = e.target.closest('.file-item');
+            if (target) {
+                const img = target.querySelector('img');
+                if (img) {
+                    console.log('[DEBUG] 点击图片预览:', img.src);
+                }
+            }
+        });
+    </script>
 </body>
 </html>

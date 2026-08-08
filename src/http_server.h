@@ -6,6 +6,7 @@
 #define HTTP_SERVER_H
 
 #include "esp_err.h"
+#include "esp_http_server.h"
 
 /**
  * @brief HTTP服务器初始化
@@ -13,6 +14,12 @@
  * @return 初始化成功返回ESP_OK
  */
 esp_err_t http_server_init(void);
+
+/**
+ * @brief 获取HTTP服务器句柄
+ * @return HTTP服务器句柄
+ */
+httpd_handle_t get_httpd_handle(void);
 
 /**
  * @brief 获取系统状态JSON字符串

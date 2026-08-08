@@ -13,6 +13,7 @@
 #include "rom/ets_sys.h"
 
 static const char *TAG = "ACTUATORS";
+#define LOG_TAG TAG
 
 /* ========== 舵机 ========== */
 
@@ -206,7 +207,7 @@ esp_err_t actuators_motor_set_speed(uint8_t speed)
 
     esp_err_t ret = ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, duty);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "设置LEDC占空比失败: %s", esp_err_to_name(ret));
+        ACTUATORS_LOGE(TAG, "设置LEDC占空比失败: %s", esp_err_to_name(ret));
         xSemaphoreGive(s_motor_mutex);
         return ret;
     }
@@ -405,10 +406,10 @@ esp_err_t actuators_init(void)
     // 初始化电机
     motor_init();
 
-    // 设置默认舵机角度
-    actuators_servo_set_angle(90);
+    // 舵机初始角度设置暂时跳过 - 启动瞬间电流过大导致 USB 掉电重启
+    // actuators_servo_set_angle(90);
 
-    ESP_LOGI(TAG, "执行器模块初始化完成");
+    ESP_LOGI(TAG, "执行器模块初始化完成 (舵机初始角度已跳过)");
 
     return ESP_OK;
 }

@@ -10,9 +10,15 @@
 #include "config.h"
 #include "actuators/actuators.h"
 #include "wifi_app.h"
+#include "wifi_config.h"
+#include "wifi_web.h"
 #include "spiffs_web.h"
 #include "sdcard/sdcard.h"
 #include "sdcard/sdcard_web.h"
+#include "video/video.h"
+#include "video/video_web.h"
+#include "sensors/sensors.h"
+#include "sensors/sensors_web.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include "esp_heap_caps.h"
@@ -22,9 +28,21 @@
 #include <string.h>
 
 static const char *TAG = "HTTP_SERVER";
+#define LOG_TAG TAG
 
 /* Web 目录前缀 */
 #define WEB_BASE_PATH "web/"
+
+/* HTTP服务器句柄 - 供其他模块获取 */
+static httpd_handle_t s_http_server_handle = NULL;
+
+/**
+ * @brief 获取HTTP服务器句柄
+ */
+httpd_handle_t get_httpd_handle(void)
+{
+    return s_http_server_handle;
+}
 
 /**
  * @brief 根据文件扩展名获取 MIME 类型
@@ -109,7 +127,7 @@ static esp_err_t captive_portal_handler(httpd_req_t *req)
         return ESP_OK;
     }
 
-    ESP_LOGI(TAG, "Captive Portal 发送重定向页面");
+    HTTP_LOGI(TAG, "Captive Portal 发送重定向页面");
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_send(req, buffer, len);
     free(buffer);
@@ -445,16 +463,39 @@ static const httpd_uri_t uri_routes[] = {
     {.uri = "/api/pump",      .method = HTTP_GET, .handler = api_pump_handler},
     {.uri = "/api/servo",     .method = HTTP_GET, .handler = api_servo_handler},
     {.uri = "/api/config",    .method = HTTP_GET, .handler = api_config_handler},
+    /* WiFi 配置 API */
+    {.uri = "/api/wifi/status",   .method = HTTP_GET, .handler = wifi_web_status_handler},
+    {.uri = "/api/wifi/config",   .method = HTTP_GET, .handler = wifi_web_config_handler},
+    {.uri = "/api/wifi/set",     .method = HTTP_GET, .handler = wifi_web_set_handler},
+    {.uri = "/api/wifi/scan",    .method = HTTP_GET, .handler = wifi_web_scan_handler},
+    {.uri = "/api/wifi/disconnect", .method = HTTP_GET, .handler = wifi_web_disconnect_handler},
     /* TF 卡文件浏览路由 - 使用 /fs 前缀避免路径冲突 */
     {.uri = "/fs",            .method = HTTP_GET, .handler = sdcard_page_handler},
     {.uri = "/fs/",           .method = HTTP_GET, .handler = sdcard_page_handler},
     {.uri = "/fs/sdcard.css", .method = HTTP_GET, .handler = sdcard_css_handler},
     {.uri = "/fs/sdcard.js",  .method = HTTP_GET, .handler = sdcard_js_handler},
     {.uri = "/fs/files",     .method = HTTP_GET, .handler = sdcard_web_download_handler},
-    {.uri = "/fs/upload",    .method = HTTP_POST, .handler = sdcard_web_upload_handler},
+    {.uri = "/api/sdcard/upload",    .method = HTTP_POST, .handler = sdcard_web_upload_handler},
+    {.uri = "/api/sdcard/mkdir",    .method = HTTP_POST, .handler = sdcard_web_mkdir_handler},
+    {.uri = "/api/sdcard/delete",   .method = HTTP_POST, .handler = sdcard_web_delete_handler},
+    {.uri = "/fs/dirsize",  .method = HTTP_GET, .handler = sdcard_web_dirsize_handler},
     {.uri = "/api/sdcard/debug",  .method = HTTP_GET, .handler = sdcard_web_debug_handler},
     {.uri = "/api/sdcard/files",  .method = HTTP_GET, .handler = sdcard_web_files_handler},
+    {.uri = "/api/sdcard/dirs",   .method = HTTP_GET, .handler = sdcard_web_dirs_handler},
     {.uri = "/api/sdcard/info",    .method = HTTP_GET, .handler = sdcard_web_info_handler},
+    /* 视频监控 API - 供Vue3前端调用 */
+    {.uri = "/api/video/info",         .method = HTTP_GET,  .handler = video_web_info_handler},
+    {.uri = "/api/video/status",       .method = HTTP_GET,  .handler = video_web_status_handler},
+    {.uri = "/api/video/framesizes",   .method = HTTP_GET,  .handler = video_web_framesizes_handler},
+    {.uri = "/api/video/stream",       .method = HTTP_GET,  .handler = video_web_stream_handler},
+    {.uri = "/api/video/snapshot",     .method = HTTP_GET,  .handler = video_web_snapshot_handler},
+    {.uri = "/api/video/config",       .method = HTTP_POST, .handler = video_web_config_handler},
+    {.uri = "/api/video/stream/start", .method = HTTP_POST, .handler = video_web_start_stream_handler},
+    {.uri = "/api/video/stream/stop",  .method = HTTP_POST, .handler = video_web_stop_stream_handler},
+    /* 传感器 API */
+    {.uri = "/api/sensors/data",   .method = HTTP_GET, .handler = sensors_web_get_data_handler},
+    {.uri = "/api/sensors/config", .method = HTTP_GET, .handler = sensors_web_get_config_handler},
+    {.uri = "/api/sensors/config", .method = HTTP_POST, .handler = sensors_web_set_config_handler},
     /* Captive Portal 路由 - 捕获常见重定向URL */
     {.uri = "/generate_204",  .method = HTTP_GET, .handler = captive_portal_handler},
     {.uri = "/fwlink/",       .method = HTTP_GET, .handler = captive_portal_handler},
@@ -486,15 +527,18 @@ esp_err_t http_server_init(void)
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = HTTP_PORT;
     config.stack_size = 8192;  // 增加栈空间
-    config.max_uri_handlers = 40;
+    config.max_uri_handlers = sizeof(uri_routes) / sizeof(uri_routes[0]);
 
     httpd_handle_t server = NULL;
     esp_err_t ret = httpd_start(&server, &config);
 
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "HTTP 服务器启动失败: %s", esp_err_to_name(ret));
+        HTTP_LOGE(TAG, "HTTP 服务器启动失败: %s", esp_err_to_name(ret));
         return ret;
     }
+
+    // 保存服务器句柄供其他模块使用
+    s_http_server_handle = server;
 
     // 注册所有 URI 路由
     for (int i = 0; i < sizeof(uri_routes) / sizeof(uri_routes[0]); i++) {

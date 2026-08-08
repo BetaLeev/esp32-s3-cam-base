@@ -204,6 +204,95 @@ body {
     color: #888;
     display: flex;
     justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 删除按钮 */
+.delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    opacity: 0;
+    transition: all 0.2s;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.file-item:hover .delete-btn {
+    opacity: 0.7;
+}
+
+.delete-btn:hover {
+    opacity: 1 !important;
+    background: rgba(244, 67, 54, 0.2);
+    transform: scale(1.2);
+}
+
+/* 创建目录对话框 */
+.mkdir-dialog {
+    background: white;
+    border-radius: 16px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    min-width: 320px;
+}
+
+.mkdir-dialog h3 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 18px;
+}
+
+.mkdir-dialog input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 20px;
+    transition: border-color 0.2s;
+}
+
+.mkdir-dialog input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.mkdir-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.mkdir-buttons button {
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+}
+
+.mkdir-buttons button:first-child {
+    background: #e9ecef;
+    color: #666;
+}
+
+.mkdir-buttons button:first-child:hover {
+    background: #ddd;
+}
+
+.mkdir-buttons button.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.mkdir-buttons button.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 /* 空状态和加载状态 */

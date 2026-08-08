@@ -17,6 +17,8 @@
 #include "config/hw_storage.h"
 #include "config/hw_tasks.h"
 #include "config/hw_system.h"
+#include "config/hw_audio.h"
+#include "config/hw_log.h"
 
 /* ========================================
  * 兼容性宏定义 (兼容旧代码)
@@ -34,6 +36,13 @@
 #define SERVO_GPIO           GPIO_SERVO
 #define THERMISTOR_GPIO      GPIO_ADC_THERMISTOR
 #define PHOTOSENSOR_GPIO     GPIO_ADC_PHOTOSENSOR
+
+/* 音频引脚兼容性 */
+#define AUDIO_BCLK_PIN       GPIO_AUDIO_BCLK
+#define AUDIO_WS_PIN         GPIO_AUDIO_WS
+#define AUDIO_DIN_PIN        GPIO_AUDIO_DIN
+#define AUDIO_GAIN_PIN       GPIO_AUDIO_GAIN
+#define AUDIO_SD_PIN         GPIO_AUDIO_SD
 
 /* SD卡引脚兼容性 */
 #define SD_MMC_CLK_PIN       GPIO_SD_CLK

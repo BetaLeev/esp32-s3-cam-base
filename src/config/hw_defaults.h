@@ -26,7 +26,7 @@
 #define DEFAULT_GPIO_DHT11           4
 #define DEFAULT_GPIO_SERVO           48
 #define DEFAULT_GPIO_THERMISTOR      5
-#define DEFAULT_GPIO_PHOTOSENSOR     3
+#define DEFAULT_GPIO_PHOTOSENSOR     7
 #define DEFAULT_GPIO_SD_CLK          39
 #define DEFAULT_GPIO_SD_CMD          38
 #define DEFAULT_GPIO_SD_D0           40
