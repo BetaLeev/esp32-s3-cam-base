@@ -46,6 +46,16 @@ export function useVideo() {
     }
   })
 
+
+  // 在 useVideo.js 中确保定义了 stopStatusPolling
+
+  const stopStatusPolling = () => {
+    if (statusTimer) {
+      clearInterval(statusTimer);
+      statusTimer = null;
+    }
+  };
+
   // 用户可编辑参数（双向绑定）
   const params = reactive({
     brightness: 0,
@@ -71,7 +81,11 @@ export function useVideo() {
   // URL 计算
   // ========================================
 
-  const streamUrl = computed(() => getVideoStreamUrl())
+  // 增加时间戳，确保每次点击“开启实时流”都会发起全新的 TCP/HTTP 请求
+  const streamUrl = computed(() => {
+    return `${getVideoStreamUrl()}?t=${snapshotKey.value}`
+  });
+
   const snapshotUrl = computed(() => {
     // 依赖 snapshotKey，每次点击抓拍都会更新
     return `${getVideoSnapshotUrl()}&k=${snapshotKey.value}`
@@ -162,26 +176,14 @@ export function useVideo() {
   const startStatusPolling = () => {
     if (statusTimer) return
     statusTimer = setInterval(async () => {
-      // 实时流中：不轮询（减少请求），只轮询简化状态
+      // 关键修改：实时视频流推送中时，直接跳过轮询，避免占满 HTTP 服务器 Thread 造成 Socket 104 错误
       if (isStreaming.value) {
-        try {
-          const res = await getVideoStatus()
-          const payload = res.data?.data
-          if (payload) {
-            isStreaming.value = !!payload.streaming
-          }
-        } catch (_) { /* 静默失败 */ }
-      } else {
-        refreshInfo()
+        return
       }
-    }, 5000)
-  }
 
-  const stopStatusPolling = () => {
-    if (statusTimer) {
-      clearInterval(statusTimer)
-      statusTimer = null
-    }
+      // 未开流时才定时刷新摄像头配置信息
+      refreshInfo()
+    }, 5000)
   }
 
   // ========================================
@@ -236,9 +238,9 @@ export function useVideo() {
     actionLoading.value = 'start'
     try {
       await startVideoStream()
+      snapshotKey.value++ // 刷新流 URL 的 Query 参数，建立全新的 Socket
       isStreaming.value = true
       startFpsCounter()
-      // 前端实际使用 MJPEG img src，这里已经生效
       ElMessage.success('实时视频流已启动')
     } catch (err) {
       console.error('[Video] 启动流失败:', err)
