@@ -46,22 +46,22 @@
 
       <!-- 视频流 / 快照 -->
       <div v-else class="video-wrapper">
+        <!-- 快照模式 -->
         <img
           v-if="!isStreaming"
-          :key="snapshotKey"
+          :key="'snapshot-' + snapshotKey"
           :src="snapshotUrl"
           alt="Camera Snapshot"
           class="video-frame"
           @load="emit('snapshotLoad')"
           @error="emit('snapshotError')"
         />
+        <!-- 实时流模式 (WebSocket) -->
         <img
           v-else
-          :src="streamUrl"
+          ref="imgRef"
           alt="Camera Stream"
           class="video-frame"
-          @load="emit('streamLoad')"
-          @error="emit('streamError')"
         />
 
         <!-- 视频底部信息叠加 -->
@@ -80,38 +80,46 @@
       </div>
     </div>
 
-    <!-- 控制按钮插槽（由 index.vue 通过具名插槽填充） -->
+    <!-- 控制按钮插槽 -->
     <slot name="controls" />
   </el-card>
 </template>
 
 <script setup>
+import { ref, watch, onMounted } from 'vue'
 import { Refresh, VideoCameraFilled, VideoPlay } from '@element-plus/icons-vue'
 
-defineProps({
-  // 摄像头信息
+const props = defineProps({
   info: { type: Object, required: true },
-  // 是否处于实时流模式
   isStreaming: { type: Boolean, default: false },
-  // 当前 FPS
   fps: { type: Number, default: 0 },
-  // 信息刷新加载态
   loading: { type: Boolean, default: false },
-  // 实时流 URL
-  streamUrl: { type: String, default: '' },
-  // 快照 URL
   snapshotUrl: { type: String, default: '' },
-  // 快照 img 强制刷新 key
-  snapshotKey: { type: Number, default: 0 }
+  snapshotKey: { type: Number, default: 0 },
+  setImgRef: { type: Function, default: null }
 })
 
 const emit = defineEmits([
   'refreshInfo',
   'snapshotLoad',
-  'snapshotError',
-  'streamLoad',
-  'streamError'
+  'snapshotError'
 ])
+
+// img 元素引用
+const imgRef = ref(null)
+
+// 关键修复：watch 监听切换实时流模式时创出的新 img 标签
+watch(imgRef, (newEl) => {
+  if (newEl && typeof props.setImgRef === 'function') {
+    props.setImgRef(newEl)
+  }
+})
+
+onMounted(() => {
+  if (typeof props.setImgRef === 'function' && imgRef.value) {
+    props.setImgRef(imgRef.value)
+  }
+})
 </script>
 
 <style scoped>
@@ -119,7 +127,6 @@ const emit = defineEmits([
   margin-bottom: 20px;
 }
 
-/* ---------- Header ---------- */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -138,7 +145,6 @@ const emit = defineEmits([
   align-items: center;
 }
 
-/* ---------- 视频容器 ---------- */
 .video-container {
   background: #0f1115;
   border-radius: 10px;

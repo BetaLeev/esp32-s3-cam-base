@@ -15,22 +15,22 @@
           router
           class="nav-menu"
         >
-          <el-menu-item index="/actuators">
+          <!-- <el-menu-item index="/actuators">
             <el-icon><Monitor /></el-icon>
             设备控制
           </el-menu-item>
           <el-menu-item index="/sensors">
             <el-icon><DataAnalysis /></el-icon>
             环境监测
-          </el-menu-item>
+          </el-menu-item> -->
           <el-menu-item index="/video">
             <el-icon><VideoCamera /></el-icon>
             视频监控
           </el-menu-item>
-          <el-menu-item index="/files">
+          <!-- <el-menu-item index="/files">
             <el-icon><Folder /></el-icon>
             文件管理
-          </el-menu-item>
+          </el-menu-item> -->
           <el-menu-item index="/wifi">
             <el-icon><Connection /></el-icon>
             WiFi 设置

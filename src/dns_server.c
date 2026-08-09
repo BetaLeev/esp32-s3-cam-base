@@ -5,7 +5,7 @@
  */
 #include "dns_server.h"
 #include "config.h"
-#include "wifi_app.h"
+#include "wifi/wifi.h"
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "lwip/dns.h"
@@ -75,7 +75,7 @@ static void dns_server_task(void *pvParameters)
 
     // 获取AP IP地址
     char ap_ip_str[16];
-    wifi_app_get_ap_ip_string(ap_ip_str, sizeof(ap_ip_str));
+    wifi_get_ap_ip_string(ap_ip_str, sizeof(ap_ip_str));
     uint32_t ap_ip = ipaddr_addr(ap_ip_str);
 
     while (1) {

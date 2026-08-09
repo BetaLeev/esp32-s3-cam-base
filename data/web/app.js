@@ -50,10 +50,14 @@ function formatUptime(seconds) {
  * 更新硬件资源监控数据
  */
 function updateHardwareResources(data) {
+    // 从 resources 对象获取硬件资源数据
+    const resources = data.resources || {};
+
     // DRAM内存
-    const dramTotal = data.dram_total || 0;
-    const dramFree = data.dram_free || 0;
-    const dramUsed = data.dram_used || (dramTotal > 0 ? dramTotal - dramFree : 0);
+    const dram = resources.dram || {};
+    const dramTotal = dram.total || 0;
+    const dramFree = dram.free || 0;
+    const dramUsed = dramTotal > 0 ? dramTotal - dramFree : 0;
     const dramPercent = dramTotal > 0 ? (dramUsed / dramTotal * 100) : 0;
 
     document.getElementById('dramBar').style.width = dramPercent + '%';
@@ -61,9 +65,10 @@ function updateHardwareResources(data) {
         formatBytes(dramUsed) + ' / ' + formatBytes(dramTotal);
 
     // PSRAM内存
-    const psramTotal = data.psram_total || 0;
-    const psramFree = data.psram_free || 0;
-    const psramUsed = data.psram_used || (psramTotal > 0 ? psramTotal - psramFree : 0);
+    const psram = resources.psram || {};
+    const psramTotal = psram.total || 0;
+    const psramFree = psram.free || 0;
+    const psramUsed = psramTotal > 0 ? psramTotal - psramFree : 0;
     const psramPercent = psramTotal > 0 ? (psramUsed / psramTotal * 100) : 0;
 
     const psramBar = document.getElementById('psramBar');
@@ -77,13 +82,15 @@ function updateHardwareResources(data) {
         psramText.textContent = '无 PSRAM';
     }
 
-    // Flash存储 - 只显示总容量
-    const flashTotal = data.flash_total || 0;
+    // Flash存储
+    const flash = resources.flash || {};
+    const flashTotal = flash.total || 0;
     document.getElementById('flashTotal').textContent = formatBytes(flashTotal);
 
     // SPIFFS文件系统
-    const spiffsTotal = data.spiffs_total || 0;
-    const spiffsFree = data.spiffs_free || 0;
+    const spiffs = resources.spiffs || {};
+    const spiffsTotal = spiffs.total || 0;
+    const spiffsFree = spiffs.free || 0;
     const spiffsUsed = spiffsTotal > 0 ? (spiffsTotal - spiffsFree) : 0;
     const spiffsPercent = spiffsTotal > 0 ? (spiffsUsed / spiffsTotal * 100) : 0;
 
@@ -92,15 +99,15 @@ function updateHardwareResources(data) {
         formatBytes(spiffsFree) + ' / ' + formatBytes(spiffsTotal);
 
     // TF卡存储
-    const sdcardMounted = data.sdcard_mounted === 1;
-    const sdcardTotal = data.sdcard_total || 0;
-    const sdcardFree = data.sdcard_free || 0;
-    
+    const sdcard = resources.sdcard || {};
+    const sdcardMounted = sdcard.mounted === true || sdcard.mounted === 1;
+    const sdcardTotal = sdcard.total || 0;
+    const sdcardFree = sdcard.free || 0;
+
     const sdcardBar = document.getElementById('sdcardBar');
     const sdcardTextEl = document.getElementById('sdcardText');
 
     if (sdcardMounted) {
-        // 正常显示已用/总量
         const sdcardUsed = sdcardTotal - sdcardFree;
         const sdcardPercent = sdcardTotal > 0 ? (sdcardUsed / sdcardTotal * 100) : 0;
         sdcardBar.style.width = sdcardPercent + '%';
@@ -111,8 +118,9 @@ function updateHardwareResources(data) {
     }
 
     // CPU频率
+    const cpu = resources.cpu || {};
     document.getElementById('cpuFreq').textContent =
-        (data.cpu_freq_mhz || '--') + ' MHz';
+        (cpu.freq_mhz || data.cpu_freq_mhz || 0) + ' MHz';
 
     // 运行时间
     document.getElementById('uptime').textContent = formatUptime(data.uptime_seconds);
@@ -156,40 +164,43 @@ async function updateNetworkStatus() {
  */
 async function updateStatus() {
     try {
-        const response = await fetch('/api/status');
-        const data = await response.json();
+        const response = await fetch('/api/system/status');
+        const json = await response.json();
+        const data = json.data || {};
+        const sensors = data.sensors || {};
+        const actuators = data.actuators || {};
 
         // 热敏电阻 - 原始值和温度
-        document.getElementById('thermistorRaw').textContent = data.thermistor_raw !== undefined ? data.thermistor_raw : '--';
-        document.getElementById('thermistorTemp').textContent = data.thermistor_temp.toFixed(1) + '°C';
+        document.getElementById('thermistorRaw').textContent = sensors.thermistor_raw !== undefined ? sensors.thermistor_raw : '--';
+        document.getElementById('thermistorTemp').textContent = sensors.thermistor_temp !== undefined ? sensors.thermistor_temp.toFixed(1) : '--' + '°C';
 
         // 光敏电阻 - 原始值和光照
-        document.getElementById('photosensorRaw').textContent = data.photosensor_raw !== undefined ? data.photosensor_raw : '--';
-        document.getElementById('photosensorLux').textContent = data.light.toFixed(0) + ' lux';
+        document.getElementById('photosensorRaw').textContent = sensors.photosensor_raw !== undefined ? sensors.photosensor_raw : '--';
+        document.getElementById('photosensorLux').textContent = sensors.light !== undefined ? sensors.light.toFixed(0) : '--' + ' lux';
 
         // DHT11 温湿度
-        document.getElementById('dht11Temp').textContent = data.dht11_temp.toFixed(1) + '°C';
-        document.getElementById('dht11Humidity').textContent = data.dht11_humidity.toFixed(1) + '%';
+        document.getElementById('dht11Temp').textContent = sensors.dht11_temp !== undefined ? sensors.dht11_temp.toFixed(1) : '--' + '°C';
+        document.getElementById('dht11Humidity').textContent = sensors.dht11_humidity !== undefined ? sensors.dht11_humidity.toFixed(1) : '--' + '%';
 
         // 水泵档位状态
-        currentPumpGear = data.pump_gear;
-        const isPumpOn = data.pump_state === 1;
-        document.getElementById('pumpStatus').textContent = data.pump_gear_name || (isPumpOn ? '开启' : '关闭');
-        document.getElementById('pumpSpeed').textContent = '速度: ' + data.pump_speed + '%';
+        currentPumpGear = actuators.pump_state || 0;
+        const isPumpOn = actuators.pump_state === 1;
+        document.getElementById('pumpStatus').textContent = isPumpOn ? '开启' : '关闭';
+        document.getElementById('pumpSpeed').textContent = '速度: ' + (actuators.pump_speed || 0) + '%';
 
         // 更新档位按钮样式
         updateGearButtons(currentPumpGear);
 
         // 水泵速度滑块（只在开启时更新）
         if (!isUpdatingStatus) {
-            document.getElementById('speedSlider').value = data.pump_speed;
-            document.getElementById('speedDisplay').textContent = data.pump_speed;
+            document.getElementById('speedSlider').value = actuators.pump_speed || 0;
+            document.getElementById('speedDisplay').textContent = actuators.pump_speed || 0;
         }
 
         // 舵机角度
-        document.getElementById('servoAngle').textContent = data.servo_angle + '°';
-        document.getElementById('servoSlider').value = data.servo_angle;
-        document.getElementById('servoDisplay').textContent = data.servo_angle;
+        document.getElementById('servoAngle').textContent = (actuators.servo_angle || 90) + '°';
+        document.getElementById('servoSlider').value = actuators.servo_angle || 90;
+        document.getElementById('servoDisplay').textContent = actuators.servo_angle || 90;
 
         // 更新硬件资源监控
         updateHardwareResources(data);

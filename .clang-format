@@ -1,0 +1,17 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 100
+
+# 保持宏定义和函数调用换行风格
+AllowShortBlocksOnASingleLine: Never
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: None
+
+# 保持大括号跟在函数/判断语句同一行 (Attach)
+BreakBeforeBraces: Attach
+
+# 优化缩进与对齐
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None

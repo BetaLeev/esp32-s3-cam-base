@@ -6,14 +6,12 @@
       :isStreaming="isStreaming"
       :fps="fps"
       :loading="loading"
-      :streamUrl="streamUrl"
       :snapshotUrl="snapshotUrl"
       :snapshotKey="snapshotKey"
+      :setImgRef="setImgRef"
       @refresh-info="refreshInfo"
       @snapshot-load="onSnapshotLoad"
       @snapshot-error="onSnapshotError"
-      @stream-load="onStreamLoad"
-      @stream-error="onStreamError"
     >
       <template #controls>
         <VideoControls
@@ -67,25 +65,24 @@ const {
   params,
   framesizeList,
   // URL
-  streamUrl,
   snapshotUrl,
   // 数据获取
   refreshInfo,
   // 图片事件
   onSnapshotLoad,
   onSnapshotError,
-  onStreamLoad,
-  onStreamError,
   // 用户操作
   markParamsChanged,
   handleStartStream,
   handleStopStream,
   handleTakeSnapshot,
   handleDownloadSnapshot,
-  applyParams
+  applyParams,
+  // 辅助
+  setImgRef
 } = useVideo()
 
-// 参数变更处理：更新对应字段并标记已修改
+// 参数变更处理
 const onUpdateParam = ({ key, value }) => {
   params[key] = value
   markParamsChanged()

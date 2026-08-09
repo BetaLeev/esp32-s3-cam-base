@@ -8,6 +8,11 @@
 #include "esp_log.h"
 #include "esp_spiffs.h"
 #include <sys/stat.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "esp_err.h"
+#include "esp_http_server.h"
 
 static const char *TAG = "SPIFFS_WEB";
 #define LOG_TAG TAG
@@ -111,5 +116,58 @@ esp_err_t spiffs_web_get_info(size_t *out_total, size_t *out_free)
     *out_total = total;
     *out_free = total - used;
 
+    return ESP_OK;
+}
+
+/**
+ * @brief 根据文件路径扩展名自动推断 MIME 类型
+ */
+static const char* get_mime_type(const char *path)
+{
+    if (strstr(path, ".html") || strstr(path, ".htm")) return "text/html";
+    if (strstr(path, ".css"))  return "text/css";
+    if (strstr(path, ".js"))   return "application/javascript";
+    if (strstr(path, ".png"))  return "image/png";
+    if (strstr(path, ".jpg") || strstr(path, ".jpeg")) return "image/jpeg";
+    if (strstr(path, ".ico"))  return "image/x-icon";
+    if (strstr(path, ".svg"))  return "image/svg+xml";
+    if (strstr(path, ".json")) return "application/json";
+    return "text/plain";
+}
+
+/**
+ * @brief 读取并向 HTTP 客户端分块发送静态文件
+ */
+esp_err_t spiffs_web_file_handler(httpd_req_t *req, const char *filepath)
+{
+    char full_path[128];
+    snprintf(full_path, sizeof(full_path), "%s/%s", WEBFS_BASE_PATH, filepath);
+
+    FILE *f = fopen(full_path, "r");
+    if (f == NULL) {
+        // 如果文件未找到，兜底尝试读取 /spiffs/web/index.html (适配 SPA 前端路由/Captive Portal)
+        snprintf(full_path, sizeof(full_path), "%s/web/index.html", WEBFS_BASE_PATH);
+        f = fopen(full_path, "r");
+        if (f == NULL) {
+            ESP_LOGW(TAG, "静态文件未找到: %s", filepath);
+            httpd_resp_send_404(req);
+            return ESP_FAIL;
+        }
+    }
+
+    httpd_resp_set_type(req, get_mime_type(full_path));
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+
+    char chunk[1024];
+    size_t bytes_read;
+    while ((bytes_read = fread(chunk, 1, sizeof(chunk), f)) > 0) {
+        if (httpd_resp_send_chunk(req, chunk, bytes_read) != ESP_OK) {
+            fclose(f);
+            return ESP_FAIL;
+        }
+    }
+
+    fclose(f);
+    httpd_resp_send_chunk(req, NULL, 0); // 结束分块传输
     return ESP_OK;
 }

@@ -12,12 +12,14 @@ export default defineConfig({
       '/api': {
         target: 'http://192.168.102.158',
         changeOrigin: true,
-        timeout: 15000
+        ws: true,  // 启用 WebSocket 代理
+        timeout: 0,
+        proxyTimeout: 0
       },
       '/fs': {
         target: 'http://192.168.102.158',
         changeOrigin: true,
-        timeout: 15000
+        timeout: 60000
       }
     }
   },

@@ -1,16 +1,6 @@
 /**
  * @file spiffs_web.h
  * @brief SPIFFS Web 文件系统支持
- * 
- * 功能：
- * - 初始化 SPIFFS 文件系统
- * - 提供静态文件读取接口
- * - 自动挂载 web 目录到 /spiffs
- * 
- * 使用方法：
- * 1. 在 main.c 中调用 spiffs_web_init() 初始化
- * 2. 前端文件放在 data/web/ 目录（CMakeLists.txt 会打包）
- * 3. http_server.c 通过 spiffs_web_read_file() 读取文件
  */
 
 #ifndef SPIFFS_WEB_H
@@ -18,6 +8,7 @@
 
 #include "esp_err.h"
 #include "esp_vfs.h"
+#include "esp_http_server.h"
 
 /**
  * @brief Web 文件系统配置
@@ -47,5 +38,13 @@ esp_err_t spiffs_web_read_file(const char *path, char **out_buffer, size_t *out_
  * @return ESP_OK 成功，其他失败
  */
 esp_err_t spiffs_web_get_info(size_t *out_total, size_t *out_free);
+
+/**
+ * @brief 读取并向 HTTP 客户端发送静态文件（通配符处理 Handler）
+ * @param req HTTP 请求句柄
+ * @param filepath 文件路径（例如 "web/index.html" 或 "web/app.js"）
+ * @return ESP_OK 成功，其他失败
+ */
+esp_err_t spiffs_web_file_handler(httpd_req_t *req, const char *filepath);
 
 #endif /* SPIFFS_WEB_H */

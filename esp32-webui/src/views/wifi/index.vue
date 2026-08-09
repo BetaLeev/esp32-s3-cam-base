@@ -49,7 +49,9 @@
             保存并连接
           </el-button>
           <el-button @click="handleScan" :loading="scanning">
-            <el-icon><Search /></el-icon>
+            <el-icon>
+              <Search />
+            </el-icon>
             扫描网络
           </el-button>
         </el-form-item>
@@ -153,7 +155,8 @@ const fetchStatus = async () => {
   try {
     const baseURL = import.meta.env.VITE_API_BASE_URL || ''
     const response = await fetch(`${baseURL}/api/wifi/status`)
-    const data = await response.json()
+    const result = await response.json()
+    const data = result.data
     wifiStatus.connected = data.connected
     wifiStatus.ssid = data.ssid
     wifiStatus.rssi = data.rssi
@@ -170,7 +173,8 @@ const fetchConfig = async () => {
   try {
     const baseURL = import.meta.env.VITE_API_BASE_URL || ''
     const response = await fetch(`${baseURL}/api/wifi/config`)
-    const data = await response.json()
+    const result = await response.json()
+    const data = result.data
     wifiForm.ssid = data.ssid || ''
     wifiForm.password = data.password || ''
   } catch (error) {
@@ -193,13 +197,14 @@ const handleConnect = async () => {
       auto_connect: wifiStatus.auto_connect ? 'true' : 'false'
     })
     const response = await fetch(`${baseURL}/api/wifi/set?${params}`)
-    const data = await response.json()
+    const result = await response.json()
+    const data = result.data
 
-    if (data.success) {
+    if (data && data.success) {
       ElMessage.success(data.message || '正在连接...')
       setTimeout(fetchStatus, 2000)
     } else {
-      ElMessage.error(data.error || '连接失败')
+      ElMessage.error(result.message || '连接失败')
     }
   } catch (error) {
     ElMessage.error('连接失败')
@@ -214,13 +219,14 @@ const handleDisconnect = async () => {
   try {
     const baseURL = import.meta.env.VITE_API_BASE_URL || ''
     const response = await fetch(`${baseURL}/api/wifi/disconnect`)
-    const data = await response.json()
+    const result = await response.json()
+    const data = result.data
 
-    if (data.success) {
+    if (data && data.success) {
       ElMessage.success('已断开连接')
       fetchStatus()
     } else {
-      ElMessage.error('断开失败')
+      ElMessage.error(result.message || '断开失败')
     }
   } catch (error) {
     ElMessage.error('断开失败')
@@ -240,14 +246,17 @@ const handleScan = async () => {
   try {
     const baseURL = import.meta.env.VITE_API_BASE_URL || ''
     const response = await fetch(`${baseURL}/api/wifi/scan`)
-    const data = await response.json()
+    const result = await response.json()
+    console.log(result)
 
-    if (data.success && data.networks) {
+    // 统一响应格式：数据在 result.data 中
+    const data = result.data
+    if (result.status === 'success' && data && data.success && data.networks) {
       networks.value = data.networks.filter(n => n.ssid)
         .sort((a, b) => b.rssi - a.rssi)
       ElMessage.success(`找到 ${networks.value.length} 个网络`)
     } else {
-      ElMessage.error(data.error || '扫描失败')
+      // ElMessage.error(result.message || '扫描失败')
     }
   } catch (error) {
     ElMessage.error('扫描失败')
@@ -280,12 +289,26 @@ onUnmounted(() => {
   margin: 0 auto;
 }
 
-.status-card, .config-card, .scan-card {
+.status-card,
+.config-card,
+.scan-card {
   margin-bottom: 20px;
 }
 
-.signal-excellent { color: #67c23a; font-weight: bold; }
-.signal-good { color: #85ce61; }
-.signal-fair { color: #e6a23c; }
-.signal-weak { color: #f56c6c; }
+.signal-excellent {
+  color: #67c23a;
+  font-weight: bold;
+}
+
+.signal-good {
+  color: #85ce61;
+}
+
+.signal-fair {
+  color: #e6a23c;
+}
+
+.signal-weak {
+  color: #f56c6c;
+}
 </style>

@@ -3,15 +3,11 @@
     <template #header>
       <div class="card-header">
         <span>摄像头参数</span>
-        <el-button
-          size="small"
-          type="primary"
-          plain
-          @click="emit('applyParams')"
-          :disabled="!paramsChanged"
-          :loading="actionLoading === 'config'"
-        >
-          <el-icon><Check /></el-icon>
+        <el-button size="small" type="primary" plain @click="emit('applyParams')" :disabled="!paramsChanged"
+          :loading="actionLoading === 'config'">
+          <el-icon>
+            <Check />
+          </el-icon>
           应用修改
         </el-button>
       </div>
@@ -28,14 +24,8 @@
               <label>亮度</label>
               <span class="param-value">{{ params.brightness }}</span>
             </div>
-            <el-slider
-              :model-value="params.brightness"
-              :min="-2"
-              :max="2"
-              :step="1"
-              show-stops
-              @update:model-value="onUpdate('brightness', $event)"
-            />
+            <el-slider :model-value="params.brightness" :min="-2" :max="2" :step="1" show-stops
+              @update:model-value="onUpdate('brightness', $event)" />
           </div>
 
           <div class="param-item">
@@ -43,14 +33,8 @@
               <label>对比度</label>
               <span class="param-value">{{ params.contrast }}</span>
             </div>
-            <el-slider
-              :model-value="params.contrast"
-              :min="-2"
-              :max="2"
-              :step="1"
-              show-stops
-              @update:model-value="onUpdate('contrast', $event)"
-            />
+            <el-slider :model-value="params.contrast" :min="-2" :max="2" :step="1" show-stops
+              @update:model-value="onUpdate('contrast', $event)" />
           </div>
 
           <div class="param-item">
@@ -58,14 +42,8 @@
               <label>饱和度</label>
               <span class="param-value">{{ params.saturation }}</span>
             </div>
-            <el-slider
-              :model-value="params.saturation"
-              :min="-2"
-              :max="2"
-              :step="1"
-              show-stops
-              @update:model-value="onUpdate('saturation', $event)"
-            />
+            <el-slider :model-value="params.saturation" :min="-2" :max="2" :step="1" show-stops
+              @update:model-value="onUpdate('saturation', $event)" />
           </div>
         </div>
       </el-col>
@@ -77,18 +55,12 @@
 
           <div class="param-item row-item">
             <label>水平镜像</label>
-            <el-switch
-              :model-value="params.hmirror"
-              @update:model-value="onUpdate('hmirror', $event)"
-            />
+            <el-switch :model-value="params.hmirror" @update:model-value="onUpdate('hmirror', $event)" />
           </div>
 
           <div class="param-item row-item">
             <label>垂直翻转</label>
-            <el-switch
-              :model-value="params.vflip"
-              @update:model-value="onUpdate('vflip', $event)"
-            />
+            <el-switch :model-value="params.vflip" @update:model-value="onUpdate('vflip', $event)" />
           </div>
 
           <div class="param-item">
@@ -96,18 +68,9 @@
               <label>分辨率</label>
               <span class="param-value hint">更改后需重新获取画面</span>
             </div>
-            <el-select
-              :model-value="params.framesize"
-              placeholder="选择分辨率"
-              style="width: 100%"
-              @update:model-value="onUpdate('framesize', $event)"
-            >
-              <el-option
-                v-for="fs in framesizeList"
-                :key="fs.id"
-                :label="fs.name"
-                :value="fs.id"
-              />
+            <el-select :model-value="params.framesize" placeholder="选择分辨率" style="width: 100%"
+              @update:model-value="onUpdate('framesize', $event)">
+              <el-option v-for="fs in framesizeList" :key="fs.id" :label="fs.name" :value="fs.id" />
             </el-select>
           </div>
 
@@ -116,17 +79,73 @@
               <label>JPEG 质量</label>
               <span class="param-value hint">越小越清晰 ({{ params.quality }}/63)</span>
             </div>
-            <el-slider
-              :model-value="params.quality"
-              :min="4"
-              :max="40"
-              :step="1"
-              @update:model-value="onUpdate('quality', $event)"
-            />
+            <el-slider :model-value="params.quality" :min="4" :max="40" :step="1"
+              @update:model-value="onUpdate('quality', $event)" />
           </div>
         </div>
       </el-col>
+
+      <!-- 在 <el-row :gutter="24"> 内部新增一列或扩充已有区域 -->
+      <el-col :xs="24" :md="12">
+        <div class="param-group">
+          <div class="param-group-title">环境与曝光控制</div>
+
+          <!-- 自动白平衡 (AWB) -->
+          <div class="param-item row-item">
+            <label>自动白平衡 (AWB)</label>
+            <el-switch :model-value="params.awb" @update:model-value="onUpdate('awb', $event)" />
+          </div>
+
+          <!-- 白平衡模式 -->
+          <div class="param-item" v-if="params.awb">
+            <div class="param-label-row">
+              <label>白平衡预设</label>
+            </div>
+            <el-select :model-value="params.wb_mode" placeholder="请选择预设环境" style="width: 100%"
+              @update:model-value="onUpdate('wb_mode', $event)">
+              <el-option :value="0" label="自动 (Auto)" />
+              <el-option :value="1" label="日光 (Sunny)" />
+              <el-option :value="2" label="阴天 (Cloudy)" />
+              <el-option :value="3" label="办公室 (Office)" />
+              <el-option :value="4" label="居家 (Home)" />
+            </el-select>
+          </div>
+
+          <!-- 自动曝光 (AEC) -->
+          <div class="param-item row-item">
+            <label>自动曝光 (AEC)</label>
+            <el-switch :model-value="params.aec" @update:model-value="onUpdate('aec', $event)" />
+          </div>
+
+          <!-- 手动曝光时间 (当关闭 AEC 时显示) -->
+          <div class="param-item" v-if="!params.aec">
+            <div class="param-label-row">
+              <label>曝光时间</label>
+              <span class="param-value">{{ params.exposure }}</span>
+            </div>
+            <el-slider :model-value="params.exposure" :min="0" :max="1200"
+              @update:model-value="onUpdate('exposure', $event)" />
+          </div>
+
+          <!-- 自动增益 (AGC) -->
+          <div class="param-item row-item">
+            <label>自动增益 (AGC)</label>
+            <el-switch :model-value="params.agc" @update:model-value="onUpdate('agc', $event)" />
+          </div>
+
+          <!-- 手动增益ISO (当关闭 AGC 时显示) -->
+          <div class="param-item" v-if="!params.agc">
+            <div class="param-label-row">
+              <label>感光增益 (Gain)</label>
+              <span class="param-value">{{ params.gain }}</span>
+            </div>
+            <el-slider :model-value="params.gain" :min="0" :max="30" @update:model-value="onUpdate('gain', $event)" />
+          </div>
+
+        </div>
+      </el-col>
     </el-row>
+
   </el-card>
 </template>
 

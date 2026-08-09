@@ -1,62 +1,65 @@
 /**
  * @file main.c
- * @brief ESP32-S3智能水泵控制系统 - 主程序入口
- * @note 整合所有模块，协调FreeRTOS任务
+ * @brief ESP32-S3智能水泵控制系统 - 主程序入口（仅 Wi-Fi 调试模式）
+ * @note 暂时注释掉所有与 Wi-Fi 无关的硬件外设及任务
  */
-#include <stdio.h>
-#include <string.h>
+#include "esp_clk_tree.h"
+#include "esp_flash.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
-#include "esp_heap_caps.h"
-#include "esp_flash.h"
-#include "esp_clk_tree.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "freertos/Task.h"
+#include <stdio.h>
+#include <string.h>
 
 #include "config.h"
-#include "wifi_app.h"
-#include "wifi_config.h"
-#include "lwip/ip_addr.h"
-#include "http_server.h"
-#include "spiffs_web.h"
-#include "sdcard/sdcard.h"
-#include "nvs_flash.h"
 #include "dns_server.h"
+#include "http_server.h"
+#include "lwip/ip_addr.h"
+#include "nvs_flash.h"
+#include "sdcard/sdcard.h"
+#include "spiffs_web.h"
+#include "wifi/wifi.h"
+#include "wifi/wifi_config.h"
 
-#include "sensors/sensors.h"
 #include "actuators/actuators.h"
-#include "video/video.h"
 #include "audio/audio.h"
 #include "audio/audio_web.h"
+#include "sensors/sensors.h"
+#include "system/system.h"
+#include "video/video.h"
 
 static const char *TAG = "MAIN";
 #define LOG_TAG TAG
+
+/* 固件编译时间戳 - 用于确认是否烧录了新代码 */
+static const char *FIRMWARE_BUILD_TIME = __DATE__ " " __TIME__;
 
 /* 系统启动时间戳 */
 static int64_t g_system_start_time = 0;
 
 /**
- * @brief 更新硬件资源监控数据
+ * @brief 更新硬件资源监控数据（仅保留基础 DRAM/PSRAM/Flash/CPU/Uptime 监控）
  */
-static void update_hardware_resources(void)
-{
+static void update_hardware_resources(void) {
     /* DRAM内存信息 */
     g_system_status.dram_total = heap_caps_get_total_size(MALLOC_CAP_8BIT);
     g_system_status.dram_free = heap_caps_get_free_size(MALLOC_CAP_8BIT);
 
-    /* PSRAM内存信息 - 使用heap_caps检测 */
+    /* PSRAM内存信息 */
     g_system_status.psram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
     g_system_status.psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
 
-    /* Flash信息 - 使用esp_flash_get_size */
+    /* Flash信息 */
     uint32_t flash_size = 0;
     if (esp_flash_get_size(esp_flash_default_chip, &flash_size) == ESP_OK) {
         g_system_status.flash_total = flash_size;
         g_system_status.flash_free = flash_size;
     }
 
-    /* SPIFFS信息 - 从spiffs_web获取 */
+    /* SPIFFS信息 */
     size_t spiffs_total = 0;
     size_t spiffs_free = 0;
     if (spiffs_web_get_info(&spiffs_total, &spiffs_free) == ESP_OK) {
@@ -64,20 +67,15 @@ static void update_hardware_resources(void)
         g_system_status.spiffs_free = (uint32_t)spiffs_free;
     }
 
-    /* TF卡信息 */
-    g_system_status.sdcard_mounted = sdcard_is_mounted() ? 1 : 0;
-    uint64_t sd_total = 0, sd_free = 0;
-    if (sdcard_get_info(&sd_total, &sd_free) == ESP_OK) {
-        g_system_status.sdcard_total = sd_total;
-        g_system_status.sdcard_free = sd_free;
-    } else {
-        g_system_status.sdcard_total = 0;
-        g_system_status.sdcard_free = 0;
-    }
+    /* [禁用] TF卡信息 - 强制赋值为 0 */
+    g_system_status.sdcard_mounted = 0;
+    g_system_status.sdcard_total = 0;
+    g_system_status.sdcard_free = 0;
 
-    /* CPU频率 - 使用esp_clk_tree获取 */
+    /* CPU频率 */
     uint32_t cpu_freq_hz = 0;
-    if (esp_clk_tree_src_get_freq_hz(SOC_MOD_CLK_CPU, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_freq_hz) == ESP_OK) {
+    if (esp_clk_tree_src_get_freq_hz(SOC_MOD_CLK_CPU, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED,
+                                     &cpu_freq_hz) == ESP_OK) {
         g_system_status.cpu_freq_mhz = cpu_freq_hz / 1000000;
     } else {
         g_system_status.cpu_freq_mhz = 240;
@@ -85,11 +83,12 @@ static void update_hardware_resources(void)
 
     /* 系统运行时间 */
     if (g_system_start_time > 0) {
-        g_system_status.uptime_seconds = (unsigned int)((esp_timer_get_time() - g_system_start_time) / 1000000);
+        g_system_status.uptime_seconds =
+            (unsigned int)((esp_timer_get_time() - g_system_start_time) / 1000000);
     }
 }
 
-/* 全局系统状态 - 供各模块共享 */
+/* 全局系统状态 - 仅供内存与运行时间展示 */
 system_status_t g_system_status = {
     .thermistor_raw = 0,
     .thermistor_temp = 0.0f,
@@ -117,11 +116,8 @@ system_status_t g_system_status = {
     .version = 1,
 };
 
-/**
- * @brief 格式化字节数为可读字符串
- */
-static void format_bytes(uint64_t bytes, char *buf, size_t buf_size)
-{
+/* __attribute__((unused)) 避免禁用该函数时编译器报 -Wunused-function 警告 */
+__attribute__((unused)) static void format_bytes(uint64_t bytes, char *buf, size_t buf_size) {
     if (bytes >= 1024ULL * 1024ULL * 1024ULL) {
         snprintf(buf, buf_size, "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
     } else if (bytes >= 1024ULL * 1024ULL) {
@@ -134,20 +130,15 @@ static void format_bytes(uint64_t bytes, char *buf, size_t buf_size)
 }
 
 /**
- * @brief 应用主任务 - 监控系统状态
+ * @brief 应用主任务 - 仅监控基础系统状态
  */
-static void app_main_task(void *pvParameters)
-{
-    MAIN_LOGI(TAG, "应用主任务启动");
+static void app_main_task(void *pvParameters) {
+    MAIN_LOGI(TAG, "应用主任务启动（仅 Wi-Fi 调试模式）");
 
-    /* 等待系统稳定 */
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     while (1) {
-        /* 更新硬件资源监控 */
         update_hardware_resources();
-
-        /* 延时5秒 */
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
@@ -155,101 +146,105 @@ static void app_main_task(void *pvParameters)
 /**
  * @brief 应用主入口
  */
-void app_main(void)
-{
-    /* 记录系统启动时间 */
+void app_main(void) {
+    printf(">>> printf: app_main entered\n");
+    esp_log_level_set("MAIN", ESP_LOG_INFO); // ← 加在这里，恢复 MAIN 的 INFO 日志
+
+    MAIN_LOGI(TAG, ">>> app_main 第一行");
     g_system_start_time = esp_timer_get_time();
 
-    /* 初始化NVS Flash */
+    /* 固件编译时间戳 */
+    MAIN_LOGI(TAG, "========== app_main 开始 ==========");
+    MAIN_LOGI(TAG, "固件编译时间: %s", FIRMWARE_BUILD_TIME);
+    ESP_EARLY_LOGI("TEST", "app_main entered immediately");
+    ESP_EARLY_LOGI("MAIN", ">>> FORCE OUTPUT - app_main entered");
+    /* 1. 初始化 NVS Flash（Wi-Fi 保存 SSID/密码必须依赖 NVS） */
     esp_err_t ret = nvs_flash_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "NVS Flash初始化失败: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* 初始化执行器模块 */
+    /* [禁用] 执行器模块 */
+    /*
     ret = actuators_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "执行器模块初始化失败: %s", esp_err_to_name(ret));
         return;
     }
+    */
 
-    /* 初始化传感器模块 */
+    /* [禁用] 传感器模块 */
+    /*
     ret = sensors_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "传感器模块初始化失败: %s", esp_err_to_name(ret));
         return;
     }
+    */
 
-    /* 启动摄像头视频模块异步初始化（后台执行，不阻塞） */
+    /* 初始化摄像头视频模块（异步启动，不阻塞主流程） */
     ret = video_init_async();
     if (ret != ESP_OK) {
         MAIN_LOGW(TAG, "摄像头异步任务创建失败 (0x%x)", ret);
-    } else {
-        MAIN_LOGI(TAG, "摄像头异步初始化已启动");
     }
 
-    /* 初始化Wi-Fi热点 */
-    ret = wifi_app_init();
+    /* 2. 初始化 Wi-Fi 热点/STA 驱动 */
+    ret = wifi_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "Wi-Fi初始化失败: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* 初始化Wi-Fi配置管理 */
+    /* 3. 初始化 Wi-Fi 配置管理 */
     ret = wifi_config_init();
     if (ret != ESP_OK) {
         MAIN_LOGW(TAG, "Wi-Fi配置管理初始化失败: %s", esp_err_to_name(ret));
     }
 
-    /* 启动DNS服务器 */
+    /* 4. 启动 DNS 服务器（用于 AP 模式下的域名解析/强制门户） */
     ret = dns_server_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "DNS服务器启动失败: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* 初始化SPIFFS文件系统 */
+    /* 5. 初始化 SPIFFS 文件系统（用于挂载 Web 前端网页资源） */
     ret = spiffs_web_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "SPIFFS初始化失败: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* 启动HTTP服务器（必须在TF卡之前，以便处理TF卡错误） */
+    /* 6. 启动 HTTP 服务器（响应 Web 页面和 Wi-Fi 配网 API） */
     ret = http_server_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "HTTP服务器启动失败: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* 初始化TF卡（失败不影响系统运行） */
-    ret = sdcard_init();
+    /* 7. 初始化系统管理模块 */
+    ret = system_init();
     if (ret != ESP_OK) {
-        MAIN_LOGW(TAG, "TF卡初始化失败，系统将继续运行（SD卡相关功能不可用）");
-    } else {
-        MAIN_LOGI(TAG, "TF卡初始化成功");
+        MAIN_LOGW(TAG, "系统管理模块初始化失败: %s", esp_err_to_name(ret));
     }
 
-    /* 创建传感器读取任务 */
+    ret = sdcard_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGW(TAG, "TF卡初始化失败");
+    }
+
+    /* [禁用] 传感器后台轮询任务 */
+    /*
     ret = sensors_create_task();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "传感器任务创建失败: %s", esp_err_to_name(ret));
     }
+    */
 
-    /* 音频模块暂时禁用 - I2S 引脚 GPIO19/20 与 USB D-/D+ 冲突，需重新分配引脚 */
-    MAIN_LOGI(TAG, "[阶段1] 音频模块暂禁用 (GPIO19/20 与 USB 冲突)");
-
-    /* 创建应用主任务 */
-    BaseType_t task_ret = xTaskCreate(
-        app_main_task,
-        "app_main_task",
-        4096,
-        NULL,
-        tskIDLE_PRIORITY + 1,
-        NULL
-    );
-
+    /* 创建系统监控任务 */
+    BaseType_t task_ret =
+        xTaskCreate(app_main_task, "app_main_task", 4096, NULL, tskIDLE_PRIORITY + 1, NULL);
     if (task_ret != pdPASS) {
         MAIN_LOGE(TAG, "创建应用主任务失败");
     }

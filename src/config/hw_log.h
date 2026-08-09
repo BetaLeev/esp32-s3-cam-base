@@ -36,38 +36,41 @@
  *   - 调试传感器: 设置 LOG_LEVEL_SENSORS = LOG_LEVEL_INFO
  */
 
-/** TF卡模块日志级别 - 调试视频时关闭以减少干扰 */
-#define LOG_LEVEL_SDCARD    LOG_LEVEL_NONE
+/** TF卡模块日志级别 */
+#define LOG_LEVEL_SDCARD    LOG_LEVEL_INFO
 
-/** 传感器模块日志级别 - 调试视频时关闭以减少干扰 */
-#define LOG_LEVEL_SENSORS   LOG_LEVEL_NONE
+/** 传感器模块日志级别 */
+#define LOG_LEVEL_SENSORS   LOG_LEVEL_INFO
 
-/** 执行器模块日志级别 - 默认禁用 */
-#define LOG_LEVEL_ACTUATORS LOG_LEVEL_NONE
+/** 执行器模块日志级别 */
+#define LOG_LEVEL_ACTUATORS LOG_LEVEL_INFO
 
-/** 音频模块日志级别 - 默认禁用 */
-#define LOG_LEVEL_AUDIO     LOG_LEVEL_NONE
+/** 音频模块日志级别 */
+#define LOG_LEVEL_AUDIO     LOG_LEVEL_INFO
 
-/** 视频模块日志级别 - 当前调试中，设为DEBUG */
+/** 视频模块日志级别 - 调试中 */
 #define LOG_LEVEL_VIDEO     LOG_LEVEL_DEBUG
 
-/** WiFi模块日志级别 - 默认禁用 */
-#define LOG_LEVEL_WIFI      LOG_LEVEL_NONE
+/** 视频WebSocket模块日志级别 */
+#define LOG_LEVEL_VIDEO_WS  LOG_LEVEL_DEBUG
 
-/** HTTP服务器日志级别 - 默认禁用 */
-#define LOG_LEVEL_HTTP      LOG_LEVEL_NONE
+/** WiFi模块日志级别 */
+#define LOG_LEVEL_WIFI      LOG_LEVEL_DEBUG
 
-/** Web模块日志级别 - 默认禁用 */
-#define LOG_LEVEL_WEB      LOG_LEVEL_NONE
+/** HTTP服务器日志级别 - 调试中 */
+#define LOG_LEVEL_HTTP      LOG_LEVEL_DEBUG
 
-/** 主模块日志级别 - 默认禁用 */
-#define LOG_LEVEL_MAIN      LOG_LEVEL_NONE
+/** Web模块日志级别 */
+#define LOG_LEVEL_WEB       LOG_LEVEL_INFO
 
-/** DNS模块日志级别 - 默认禁用 */
-#define LOG_LEVEL_DNS       LOG_LEVEL_NONE
+/** 主模块日志级别 - 调试中 */
+#define LOG_LEVEL_MAIN      LOG_LEVEL_DEBUG
 
-/** SPIFFS模块日志级别 - 默认禁用 */
-#define LOG_LEVEL_SPIFFS    LOG_LEVEL_NONE
+/** DNS模块日志级别 */
+#define LOG_LEVEL_DNS       LOG_LEVEL_INFO
+
+/** SPIFFS模块日志级别 */
+#define LOG_LEVEL_SPIFFS    LOG_LEVEL_INFO
 
 /* ========================================
  * 日志宏定义 - 根据级别自动启用/禁用
@@ -196,6 +199,31 @@
     #define VIDEO_LOGD(tag, ...) ESP_LOGD(tag, __VA_ARGS__)
 #else
     #define VIDEO_LOGD(tag, ...) do {} while(0)
+#endif
+
+/* VIDEO_WS 日志宏 */
+#if LOG_LEVEL_VIDEO_WS >= LOG_LEVEL_ERROR
+    #define VIDEO_WS_LOGE(tag, ...) ESP_LOGE(tag, __VA_ARGS__)
+#else
+    #define VIDEO_WS_LOGE(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_VIDEO_WS >= LOG_LEVEL_WARN
+    #define VIDEO_WS_LOGW(tag, ...) ESP_LOGW(tag, __VA_ARGS__)
+#else
+    #define VIDEO_WS_LOGW(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_VIDEO_WS >= LOG_LEVEL_INFO
+    #define VIDEO_WS_LOGI(tag, ...) ESP_LOGI(tag, __VA_ARGS__)
+#else
+    #define VIDEO_WS_LOGI(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_VIDEO_WS >= LOG_LEVEL_DEBUG
+    #define VIDEO_WS_LOGD(tag, ...) ESP_LOGD(tag, __VA_ARGS__)
+#else
+    #define VIDEO_WS_LOGD(tag, ...) do {} while(0)
 #endif
 
 /* WIFI 日志宏 */

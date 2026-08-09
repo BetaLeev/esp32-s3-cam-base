@@ -3,8 +3,8 @@
  * @brief WiFi 配置管理模块实现 - NVS持久化存储
  */
 #include "wifi_config.h"
-#include "wifi_app.h"
-#include "config.h"
+#include "wifi.h"
+#include "../config.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "nvs_flash.h"
@@ -15,7 +15,6 @@
 #include "freertos/task.h"
 
 static const char *TAG = "WIFI_CONFIG";
-#define LOG_TAG TAG
 
 static wifi_user_config_t g_wifi_config = {0};
 static bool g_connected = false;
@@ -31,11 +30,8 @@ static void wifi_config_event_handler(void* arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT) {
         switch (event_id) {
             case WIFI_EVENT_STA_CONNECTED: {
-                wifi_event_sta_connected_t* event = (wifi_event_sta_connected_t*) event_data;
                 g_connected = true;
-                ESP_LOGI(TAG, "WiFi 已连接: BSSID=%02x:%02x:%02x:%02x:%02x:%02x",
-                         event->bssid[0], event->bssid[1], event->bssid[2],
-                         event->bssid[3], event->bssid[4], event->bssid[5]);
+                ESP_LOGI(TAG, "WiFi 已连接");
                 break;
             }
             case WIFI_EVENT_STA_DISCONNECTED: {
@@ -84,18 +80,16 @@ esp_err_t wifi_config_init(void)
     ret = wifi_config_load(&g_wifi_config);
     if (ret != ESP_OK) {
         ESP_LOGI(TAG, "未找到保存的 WiFi 配置，使用默认值");
-        strncpy(g_wifi_config.ssid, "xiangjaizhegebu", WIFI_SSID_MAX_LEN);
+        strncpy(g_wifi_config.ssid, "xiangjiazhegebu", WIFI_SSID_MAX_LEN);
         strncpy(g_wifi_config.password, "bjbjbjbj", WIFI_PASSWORD_MAX_LEN);
         g_wifi_config.auto_connect = true;
     } else {
         ESP_LOGI(TAG, "已加载 WiFi 配置: %s", g_wifi_config.ssid);
     }
 
-    // 注册事件处理器（必须先注册，才能接收连接事件）
+    // 注册事件处理器
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                                &wifi_config_event_handler, NULL));
-
-    // 注册 IP 事件（获取 IP 地址后触发）
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
                                                &wifi_config_event_handler, NULL));
 
@@ -118,7 +112,7 @@ esp_err_t wifi_config_save(const wifi_user_config_t *config)
 
     ret = nvs_open(WIFI_CONFIG_NAMESPACE, NVS_READWRITE, &nvs_handle);
     if (ret != ESP_OK) {
-        WIFI_LOGE(TAG, "打开 NVS 失败: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "打开 NVS 失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
@@ -147,7 +141,6 @@ esp_err_t wifi_config_save(const wifi_user_config_t *config)
     nvs_close(nvs_handle);
 
     if (ret == ESP_OK) {
-        // 更新全局配置
         memcpy(&g_wifi_config, config, sizeof(wifi_user_config_t));
         ESP_LOGI(TAG, "WiFi 配置已保存");
     }
@@ -169,7 +162,6 @@ esp_err_t wifi_config_load(wifi_user_config_t *config)
         return ret;
     }
 
-    // 读取 SSID
     len = WIFI_SSID_MAX_LEN + 1;
     ret = nvs_get_str(nvs_handle, "ssid", config->ssid, &len);
     if (ret != ESP_OK) {
@@ -177,14 +169,12 @@ esp_err_t wifi_config_load(wifi_user_config_t *config)
         return ret;
     }
 
-    // 读取密码
     len = WIFI_PASSWORD_MAX_LEN + 1;
     ret = nvs_get_str(nvs_handle, "password", config->password, &len);
     if (ret != ESP_OK) {
         strcpy(config->password, "");
     }
 
-    // 读取自动连接设置
     uint8_t auto_conn = 0;
     ret = nvs_get_u8(nvs_handle, "auto_connect", &auto_conn);
     config->auto_connect = (auto_conn == 1);
@@ -221,8 +211,10 @@ esp_err_t wifi_config_connect(const char *ssid, const char *password)
 
     ESP_LOGI(TAG, "配置 WiFi: %s", ssid);
 
-    // 先断开现有连接
     esp_wifi_disconnect();
+
+    // 等待断开完成，避免与新连接冲突
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     esp_err_t ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     if (ret != ESP_OK) {
@@ -257,7 +249,6 @@ esp_err_t wifi_config_disconnect(void)
  */
 esp_err_t wifi_config_scan(wifi_ap_record_t **ap_list, uint16_t *ap_count)
 {
-    // 释放之前的扫描结果
     wifi_config_scan_free();
 
     ESP_LOGI(TAG, "开始扫描 WiFi 网络...");

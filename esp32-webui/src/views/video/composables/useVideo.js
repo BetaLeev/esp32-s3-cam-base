@@ -2,33 +2,30 @@ import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   getVideoInfo,
-  getVideoStatus,
   getVideoFramesizes,
-  getVideoStreamUrl,
   getVideoSnapshotUrl,
   setVideoConfig,
-  startVideoStream,
   stopVideoStream
 } from '@/api/esp32'
 
-/**
- * @brief 视频模块业务逻辑 composable
- * 集中管理视频相关的响应式状态、API 调用、定时器与 FPS 计数，
- * 供 video/index.vue 及其子组件复用。
- */
+// WebSocket URL - 相对路径会自动通过 Vite 代理
+const getWsUrl = () => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.__ESP32_HOST__ || window.location.host
+  return `${protocol}//${host}/api/video/ws`
+}
+
 export function useVideo() {
   // ========================================
   // 状态
   // ========================================
-
   const loading = ref(false)
-  const actionLoading = ref('') // 'start' | 'stop' | 'config' | ''
+  const actionLoading = ref('')
   const isStreaming = ref(false)
   const fps = ref(0)
   const snapshotKey = ref(0)
   const paramsChanged = ref(false)
 
-  // 原始信息（来自后端）
   const info = reactive({
     initialized: false,
     streaming: false,
@@ -46,17 +43,6 @@ export function useVideo() {
     }
   })
 
-
-  // 在 useVideo.js 中确保定义了 stopStatusPolling
-
-  const stopStatusPolling = () => {
-    if (statusTimer) {
-      clearInterval(statusTimer);
-      statusTimer = null;
-    }
-  };
-
-  // 用户可编辑参数（双向绑定）
   const params = reactive({
     brightness: 0,
     contrast: 0,
@@ -65,37 +51,129 @@ export function useVideo() {
     exposure: 0,
     hmirror: false,
     vflip: false,
-    framesize: 8, // 默认 SVGA (800x600)
-    quality: 12
+    framesize: 8,
+    quality: 12,
+    awb: true,
+    wb_mode: 0,
+    aec: true,
+    agc: true
   })
 
-  // 分辨率列表
   const framesizeList = ref([])
 
-  // 定时器
   let statusTimer = null
   let fpsTimer = null
   let fpsFrameCount = 0
+  let ws = null
+  let imgRef = null // 保存 img 元素引用
+  let currentBlobUrl = null // 保存当前显示的 Blob 临时 URL
 
   // ========================================
   // URL 计算
   // ========================================
-
-  // 增加时间戳，确保每次点击“开启实时流”都会发起全新的 TCP/HTTP 请求
-  const streamUrl = computed(() => {
-    return `${getVideoStreamUrl()}?t=${snapshotKey.value}`
-  });
-
   const snapshotUrl = computed(() => {
-    // 依赖 snapshotKey，每次点击抓拍都会更新
-    return `${getVideoSnapshotUrl()}&k=${snapshotKey.value}`
+    return `${getVideoSnapshotUrl()}`
   })
+
+  // ========================================
+  // WebSocket 连接管理 (核心修复)
+  // ========================================
+  const connectWs = () => {
+    if (ws) {
+      ws.close()
+    }
+
+    const wsUrl = getWsUrl()
+    console.log('[Video] 连接 WebSocket:', wsUrl)
+
+    // 使用动态获取的 wsUrl，不要写死 IP
+    ws = new WebSocket(wsUrl)
+    // 关键1：强制改为 arraybuffer 解析
+    ws.binaryType = 'arraybuffer'
+
+    ws.onopen = () => {
+      console.log('[Video] WebSocket 已连接，发送激活指令')
+      ws.send('start') // 必须发送初始化指令唤醒 ESP32
+    }
+
+    ws.onmessage = (event) => {
+      // 关键2：处理二进制 ArrayBuffer 图像帧
+      if (event.data instanceof ArrayBuffer) {
+        if (!imgRef) return
+
+        // 转化 ArrayBuffer 为 JPEG Blob
+        const blob = new Blob([event.data], { type: 'image/jpeg' })
+        const newUrl = URL.createObjectURL(blob)
+
+        // 立即替换图片源
+        imgRef.src = newUrl
+
+        // 同步清理上一帧的内存，防止微任务积压导致浏览器崩溃
+        if (currentBlobUrl) {
+          URL.revokeObjectURL(currentBlobUrl)
+        }
+        currentBlobUrl = newUrl
+
+        fpsFrameCount++
+      } else if (typeof event.data === 'string') {
+        console.log('[Video] WS 文本消息:', event.data)
+      }
+    }
+
+    ws.onerror = (err) => {
+      console.error('[Video] WebSocket 错误:', err)
+      ElMessage.error('视频流连接失败')
+    }
+
+    ws.onclose = () => {
+      console.log('[Video] WebSocket 已关闭')
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl)
+        currentBlobUrl = null
+      }
+      if (isStreaming.value) {
+        isStreaming.value = false
+        stopFpsCounter()
+      }
+    }
+  }
+
+  const disconnectWs = () => {
+    if (ws) {
+      ws.close()
+      ws = null
+    }
+  }
+
+  // 设置 img 元素引用
+  const setImgRef = (el) => {
+    imgRef = el
+  }
+
+  // ========================================
+  // FPS 计数器
+  // ========================================
+  const startFpsCounter = () => {
+    fpsFrameCount = 0
+    fps.value = 0
+    if (fpsTimer) clearInterval(fpsTimer)
+    fpsTimer = setInterval(() => {
+      fps.value = fpsFrameCount
+      fpsFrameCount = 0
+    }, 1000)
+  }
+
+  const stopFpsCounter = () => {
+    if (fpsTimer) {
+      clearInterval(fpsTimer)
+      fpsTimer = null
+    }
+    fps.value = 0
+  }
 
   // ========================================
   // 数据获取
   // ========================================
-
-  // 将后端信息同步到可编辑参数（仅当未处于"已修改"状态）
   const syncInfoToParams = () => {
     params.brightness = info.params.brightness
     params.contrast = info.params.contrast
@@ -104,6 +182,10 @@ export function useVideo() {
     params.vflip = info.params.vflip
     params.framesize = info.resolution.framesize || 8
     params.quality = info.params.quality
+    params.awb = info.params.awb ?? true
+    params.wb_mode = info.params.wb_mode ?? 0
+    params.aec = info.params.aec ?? true
+    params.agc = info.params.agc ?? true
     paramsChanged.value = false
   }
 
@@ -111,7 +193,6 @@ export function useVideo() {
     loading.value = true
     try {
       const res = await getVideoInfo()
-      // 统一响应格式: { status, code, message, data }
       const payload = res.data?.data
       if (payload) {
         info.initialized = !!payload.initialized
@@ -132,11 +213,7 @@ export function useVideo() {
           info.params.vflip = !!payload.params.vflip
           info.params.quality = payload.params.quality ?? 12
         }
-
-        // 同步到可编辑参数（仅当未处于"已修改"状态）
-        if (!paramsChanged.value) {
-          syncInfoToParams()
-        }
+        if (!paramsChanged.value) syncInfoToParams()
       }
     } catch (err) {
       console.error('[Video] 获取摄像头信息失败:', err)
@@ -158,8 +235,6 @@ export function useVideo() {
         }))
       }
     } catch (err) {
-      console.error('[Video] 获取分辨率列表失败:', err)
-      // 提供默认回退
       framesizeList.value = [
         { id: 5, name: '320x240 (QVGA)', width: 320, height: 240 },
         { id: 8, name: '800x600 (SVGA)', width: 800, height: 600 },
@@ -172,127 +247,72 @@ export function useVideo() {
   // ========================================
   // 状态轮询
   // ========================================
-
   const startStatusPolling = () => {
     if (statusTimer) return
-    statusTimer = setInterval(async () => {
-      // 关键修改：实时视频流推送中时，直接跳过轮询，避免占满 HTTP 服务器 Thread 造成 Socket 104 错误
-      if (isStreaming.value) {
-        return
-      }
-
-      // 未开流时才定时刷新摄像头配置信息
+    statusTimer = setInterval(() => {
+      if (isStreaming.value) return
       refreshInfo()
     }, 5000)
   }
 
-  // ========================================
-  // FPS 计数器
-  // ========================================
-
-  const startFpsCounter = () => {
-    fpsFrameCount = 0
-    fps.value = 0
-    if (fpsTimer) clearInterval(fpsTimer)
-    fpsTimer = setInterval(() => {
-      fps.value = fpsFrameCount
-      fpsFrameCount = 0
-    }, 1000)
-  }
-
-  const stopFpsCounter = () => {
-    if (fpsTimer) {
-      clearInterval(fpsTimer)
-      fpsTimer = null
+  const stopStatusPolling = () => {
+    if (statusTimer) {
+      clearInterval(statusTimer)
+      statusTimer = null
     }
-    fps.value = 0
-  }
-
-  // 每加载成功一帧就计数（快照模式下的占位）
-  const onSnapshotLoad = () => {
-    fpsFrameCount++
-  }
-
-  const onStreamLoad = () => {
-    // MJPEG 流只触发一次 load，后续帧由浏览器自动渲染
-  }
-
-  const onSnapshotError = () => {
-    console.warn('[Video] 快照加载失败')
-  }
-
-  const onStreamError = () => {
-    ElMessage.error('视频流连接失败')
-    handleStopStream()
   }
 
   // ========================================
   // 用户操作
   // ========================================
-
-  const markParamsChanged = () => {
-    paramsChanged.value = true
-  }
-
-  const handleStartStream = async () => {
-    actionLoading.value = 'start'
-    try {
-      await startVideoStream()
-      snapshotKey.value++ // 刷新流 URL 的 Query 参数，建立全新的 Socket
-      isStreaming.value = true
-      startFpsCounter()
-      ElMessage.success('实时视频流已启动')
-    } catch (err) {
-      console.error('[Video] 启动流失败:', err)
-      ElMessage.error('启动实时流失败')
-    } finally {
-      actionLoading.value = ''
+  const handleStartStream = () => {
+    if (!info.initialized) {
+      ElMessage.warning('摄像头未初始化')
+      return
     }
+    isStreaming.value = true
+    startFpsCounter()
+    connectWs()
+    ElMessage.success('视频流已启动')
   }
 
   const handleStopStream = async (silent = false) => {
     actionLoading.value = 'stop'
     try {
       await stopVideoStream()
-    } catch (_) { /* 忽略停止时的网络错误 */ }
-
+    } catch (_) { /* ignore */ }
+    disconnectWs()
     isStreaming.value = false
     stopFpsCounter()
-
-    if (!silent) {
-      ElMessage.info('实时视频流已停止')
-    }
-    // 刷新一次快照
+    if (!silent) ElMessage.info('视频流已停止')
     snapshotKey.value++
     actionLoading.value = ''
   }
 
   const handleTakeSnapshot = () => {
-    // 更新时间戳 key，重新加载快照 img
     snapshotKey.value++
-    fpsFrameCount++
     ElMessage.success('已刷新快照')
   }
 
   const handleDownloadSnapshot = async () => {
     try {
-      // 使用 fetch 确保能拿到最新图片
       const url = getVideoSnapshotUrl()
       const response = await fetch(url)
       const blob = await response.blob()
-
       const link = document.createElement('a')
       const ts = new Date().toISOString().replace(/[:.]/g, '-')
       link.download = `snapshot_${ts}.jpg`
       link.href = URL.createObjectURL(blob)
       link.click()
       setTimeout(() => URL.revokeObjectURL(link.href), 1000)
-
       ElMessage.success('快照已下载')
     } catch (err) {
-      console.error('[Video] 下载失败:', err)
       ElMessage.error('下载失败')
     }
+  }
+
+  const markParamsChanged = () => {
+    paramsChanged.value = true
   }
 
   const applyParams = async () => {
@@ -305,50 +325,46 @@ export function useVideo() {
         hmirror: params.hmirror,
         vflip: params.vflip,
         framesize: params.framesize,
-        quality: params.quality
+        quality: params.quality,
+        awb: params.awb,
+        wb_mode: params.wb_mode,
+        aec: params.aec,
+        agc: params.agc
       }
       const res = await setVideoConfig(payload)
       if (res.data?.status === 'success') {
         ElMessage.success(res.data.message || '参数已应用')
-        // 刷新后端信息
         await refreshInfo()
-        // 刷新画面
-        if (!isStreaming.value) {
-          snapshotKey.value++
-        }
+        if (!isStreaming.value) snapshotKey.value++
       } else {
         ElMessage.error(res.data?.message || '参数应用失败')
       }
     } catch (err) {
-      console.error('[Video] 应用参数失败:', err)
       ElMessage.error('参数应用失败')
     } finally {
       actionLoading.value = ''
     }
   }
 
-  // ========================================
-  // 初始化 / 清理
-  // ========================================
+  // 图片事件
+  const onSnapshotLoad = () => { fpsFrameCount++ }
+  const onSnapshotError = () => console.warn('[Video] 快照加载失败')
 
+  // ========================================
+  // 生命周期
+  // ========================================
   onMounted(async () => {
-    await Promise.all([
-      refreshInfo(),
-      refreshFramesizes()
-    ])
+    await Promise.all([refreshInfo(), refreshFramesizes()])
     startStatusPolling()
   })
 
   onUnmounted(() => {
     stopStatusPolling()
     stopFpsCounter()
-    if (isStreaming.value) {
-      handleStopStream(true) // 离开页面自动停止
-    }
+    disconnectWs()
   })
 
   return {
-    // 状态
     loading,
     actionLoading,
     isStreaming,
@@ -358,23 +374,17 @@ export function useVideo() {
     info,
     params,
     framesizeList,
-    // URL
-    streamUrl,
     snapshotUrl,
-    // 数据获取
     refreshInfo,
     refreshFramesizes,
-    // 图片事件
     onSnapshotLoad,
     onSnapshotError,
-    onStreamLoad,
-    onStreamError,
-    // 用户操作
     markParamsChanged,
     handleStartStream,
     handleStopStream,
     handleTakeSnapshot,
     handleDownloadSnapshot,
-    applyParams
+    applyParams,
+    setImgRef
   }
 }
