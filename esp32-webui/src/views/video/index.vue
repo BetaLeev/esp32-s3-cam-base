@@ -37,20 +37,33 @@
       @apply-params="applyParams"
     />
 
+    <!-- AI 视觉识别卡片（预留接口） -->
+    <AIVision ref="aiVisionRef" @openOverlay="showOverlay = true" />
+
     <!-- 摄像头信息卡片 -->
     <VideoInfo
       v-if="info.initialized"
       :info="info"
       :isStreaming="isStreaming"
     />
+
+    <!-- 可拖拽的 AI 视觉识别覆盖面板 -->
+    <AIVisionOverlay
+      :visible="showOverlay"
+      :isStreaming="isStreaming"
+      @close="showOverlay = false"
+    />
   </div>
 </template>
 
 <script setup>
+import { ref, watch } from 'vue'
 import VideoDisplay from './components/VideoDisplay.vue'
 import VideoControls from './components/VideoControls.vue'
 import VideoParams from './components/VideoParams.vue'
 import VideoInfo from './components/VideoInfo.vue'
+import AIVision from './components/AIVision.vue'
+import AIVisionOverlay from './components/AIVisionOverlay.vue'
 import { useVideo } from './composables/useVideo'
 
 const {
@@ -82,11 +95,28 @@ const {
   setImgRef
 } = useVideo()
 
+// AI 视觉组件引用
+const aiVisionRef = ref(null)
+
+// AI 覆盖面板可见性
+const showOverlay = ref(false)
+
 // 参数变更处理
 const onUpdateParam = ({ key, value }) => {
   params[key] = value
   markParamsChanged()
 }
+
+// 当开始视频流时启动 AI 识别
+watch(isStreaming, (streaming) => {
+  if (aiVisionRef.value) {
+    if (streaming) {
+      aiVisionRef.value.start()
+    } else {
+      aiVisionRef.value.stop()
+    }
+  }
+})
 </script>
 
 <style scoped>

@@ -33,6 +33,7 @@
 #include "sensors/sensors.h"
 #include "system/system.h"
 #include "video/video.h"
+#include "ai/ai.h"
 
 static const char *TAG = "MAIN";
 #define LOG_TAG TAG
@@ -247,6 +248,12 @@ void app_main(void) {
     ret = sdcard_init();
     if (ret != ESP_OK) {
         MAIN_LOGW(TAG, "TF卡初始化失败");
+    }
+
+    /* 8. 初始化 AI 语音模块 */
+    ret = ai_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGW(TAG, "AI模块初始化失败: %s", esp_err_to_name(ret));
     }
 
     /* [禁用] 传感器后台轮询任务 */

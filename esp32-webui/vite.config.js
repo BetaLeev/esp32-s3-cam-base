@@ -10,14 +10,25 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://192.168.102.158',
+        target: 'http://192.168.102.158:80',
         changeOrigin: true,
-        ws: true,  // 启用 WebSocket 代理
-        timeout: 0,
-        proxyTimeout: 0
+        ws: true,
+        timeout: 120000,         // 请求超时 2 分钟
+        proxyTimeout: 120000,    // 代理超时 2 分钟
+        configure: (proxy) => {
+          proxy.on('proxyReqWs', (proxyReq, req, socket) => {
+            console.log('[Vite WS Proxy] 代理 WebSocket 请求')
+          })
+          proxy.on('error', (err, req, socket) => {
+            console.error('[Vite WS Proxy] 代理错误:', err.message)
+          })
+          proxy.on('close', (req, socket, head) => {
+            console.log('[Vite WS Proxy] 连接关闭')
+          })
+        }
       },
       '/fs': {
-        target: 'http://192.168.102.158',
+        target: 'http://192.168.102.158:80',
         changeOrigin: true,
         timeout: 60000
       }

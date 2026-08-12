@@ -10,6 +10,8 @@
 #include "wifi/wifi_web.h"
 #include "actuators/led_web.h"
 #include "actuators/pulse_web.h"
+#include "ai/ai_web.h"
+#include "ai/ai_ws.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -85,6 +87,12 @@ esp_err_t http_server_init(void) {
 
     pulse_web_register_routes(s_http_server_handle);
     HTTP_LOGI(TAG, "Pulse 路由已注册");
+
+    ai_web_register_routes(s_http_server_handle);
+    HTTP_LOGI(TAG, "AI HTTP 路由已注册");
+
+    ai_ws_register_routes(s_http_server_handle);
+    HTTP_LOGI(TAG, "AI WebSocket 路由已注册");
 
     // 通配符路由放最后，作为静态文件兜底
     httpd_uri_t static_uri = {

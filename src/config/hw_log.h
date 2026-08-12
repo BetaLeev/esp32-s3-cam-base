@@ -75,6 +75,12 @@
 /** 脉冲控制模块日志级别 */
 #define LOG_LEVEL_PULSE     LOG_LEVEL_INFO
 
+/** AI语音模块日志级别 */
+#define LOG_LEVEL_AI        LOG_LEVEL_INFO
+
+/** AI WebSocket模块日志级别 */
+#define LOG_LEVEL_AI_WS     LOG_LEVEL_INFO
+
 /* ========================================
  * 日志宏定义 - 根据级别自动启用/禁用
  * ======================================== */
@@ -427,6 +433,56 @@
     #define PULSE_LOGD(tag, ...) ESP_LOGD(tag, __VA_ARGS__)
 #else
     #define PULSE_LOGD(tag, ...) do {} while(0)
+#endif
+
+/* AI 日志宏 */
+#if LOG_LEVEL_AI >= LOG_LEVEL_ERROR
+    #define AI_LOGE(tag, ...) ESP_LOGE(tag, __VA_ARGS__)
+#else
+    #define AI_LOGE(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_AI >= LOG_LEVEL_WARN
+    #define AI_LOGW(tag, ...) ESP_LOGW(tag, __VA_ARGS__)
+#else
+    #define AI_LOGW(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_AI >= LOG_LEVEL_INFO
+    #define AI_LOGI(tag, ...) ESP_LOGI(tag, __VA_ARGS__)
+#else
+    #define AI_LOGI(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_AI >= LOG_LEVEL_DEBUG
+    #define AI_LOGD(tag, ...) ESP_LOGD(tag, __VA_ARGS__)
+#else
+    #define AI_LOGD(tag, ...) do {} while(0)
+#endif
+
+/* AI_WS 日志宏 */
+#if LOG_LEVEL_AI_WS >= LOG_LEVEL_ERROR
+    #define AI_WS_LOGE(tag, ...) ESP_LOGE(tag, __VA_ARGS__)
+#else
+    #define AI_WS_LOGE(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_AI_WS >= LOG_LEVEL_WARN
+    #define AI_WS_LOGW(tag, ...) ESP_LOGW(tag, __VA_ARGS__)
+#else
+    #define AI_WS_LOGW(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_AI_WS >= LOG_LEVEL_INFO
+    #define AI_WS_LOGI(tag, ...) ESP_LOGI(tag, __VA_ARGS__)
+#else
+    #define AI_WS_LOGI(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_AI_WS >= LOG_LEVEL_DEBUG
+    #define AI_WS_LOGD(tag, ...) ESP_LOGD(tag, __VA_ARGS__)
+#else
+    #define AI_WS_LOGD(tag, ...) do {} while(0)
 #endif
 
 #endif /* HW_LOG_H */
