@@ -8,6 +8,8 @@
 #include "system/system_web.h"
 #include "video/video_web.h"
 #include "wifi/wifi_web.h"
+#include "actuators/led_web.h"
+#include "actuators/pulse_web.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -77,6 +79,12 @@ esp_err_t http_server_init(void) {
 
     system_web_register_routes(s_http_server_handle);
     HTTP_LOGI(TAG, "System 路由已注册");
+
+    led_web_register_routes(s_http_server_handle);
+    HTTP_LOGI(TAG, "LED 路由已注册");
+
+    pulse_web_register_routes(s_http_server_handle);
+    HTTP_LOGI(TAG, "Pulse 路由已注册");
 
     // 通配符路由放最后，作为静态文件兜底
     httpd_uri_t static_uri = {

@@ -11,6 +11,12 @@ const api = axios.create({
 })
 
 // ========================================
+// Mock 数据 (开发环境使用)
+// 后端接口就绪后，注释掉下面这行
+// ========================================
+// import '@/mock/esp32'
+
+// ========================================
 // 系统状态
 // ========================================
 
@@ -50,11 +56,60 @@ export const controlServo = (angle) => {
   return api.get('/servo', { params: { angle } })
 }
 
+// LED控制
+// params: {
+//   pin: 2,              // GPIO引脚
+//   action: 'start',     // start | stop | config
+//   trigger_mode: 'blink', // static | blink
+//   initial_level: 1,    // 初始电平 0=低 1=高
+//   high_duration: 1,    // 高电平时长(秒)
+//   low_duration: 1,     // 低电平时长(秒)
+//   repeat_count: 3      // 重复次数，-1表示无限
+// }
+export const controlLed = (params) => {
+  return api.get('/led', { params })
+}
+
+// 获取已使用的引脚列表 (需后端实现)
+export const getUsedPins = () => {
+  return api.get('/gpio/used')
+}
+
+// 脉冲控制
+// params: {
+//   pin: 2,              // GPIO引脚
+//   action: 'start',     // start | stop
+//   mode: 'single',      // single | continuous
+//   intensity: 50,       // 强度 0-100%
+//   frequency: 10,       // 频率 1-1000 Hz
+//   pulse_width: 100     // 脉冲宽度 ms (单次模式)
+// }
+export const controlPulse = (params) => {
+  return api.get('/pulse', { params })
+}
+
 // ========================================
 // 配置信息
 // ========================================
 
 export const getConfig = () => api.get('/config')
+
+// ========================================
+// 系统管理 (/api/system/*)
+// ========================================
+
+// 获取板子基本信息
+export const getBoardInfo = () => api.get('/system/info')
+
+// 获取温度数据
+export const getBoardTemp = () => api.get('/system/temp')
+
+// 系统重启
+export const rebootSystem = () => api.post('/system/reboot')
+
+// 系统关机 (深度睡眠)
+// params: { wakeup_pin: -1, wakeup_level: 0 }
+export const shutdownSystem = (params) => api.post('/system/shutdown', params)
 
 // ========================================
 // TF卡文件管理

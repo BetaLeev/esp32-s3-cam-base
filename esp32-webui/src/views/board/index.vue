@@ -1,267 +1,271 @@
 <template>
   <div class="board-view">
-    <!-- 统计卡片 -->
-    <el-row :gutter="16" class="stat-row">
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card stat-total">
-          <div class="stat-value">{{ stats.total }}</div>
-          <div class="stat-label">总引脚数</div>
-        </el-card>
+    <!-- 第一行：图片 + 系统控制 + 温度 -->
+    <el-row :gutter="16" class="top-row">
+      <!-- 板子图片 -->
+      <el-col :span="10">
+        <BoardImage :image-url="imageUrl" />
       </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card stat-used">
-          <div class="stat-value">{{ stats.used }}</div>
-          <div class="stat-label">已使用</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card stat-free">
-          <div class="stat-value">{{ stats.free }}</div>
-          <div class="stat-label">空闲</div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card stat-reserved">
-          <div class="stat-value">{{ stats.reserved }}</div>
-          <div class="stat-label">预留</div>
-        </el-card>
+
+      <!-- 右侧：系统控制 + 温度 -->
+      <el-col :span="14">
+        <BoardControl :board-info="boardInfo" @reboot="onReboot" @shutdown="onShutdown" />
+        <BoardTemp
+          :loading="tempLoading"
+          :temp-data="tempData"
+          @refresh="fetchTempData"
+        />
       </el-col>
     </el-row>
 
-    <!-- 引脚列表 -->
-    <el-card class="pin-card">
-      <template #header>
-        <div class="card-header">
-          <span>板子引脚总览</span>
-          <el-radio-group v-model="filterStatus" size="small">
-            <el-radio-button label="">全部</el-radio-button>
-            <el-radio-button label="used">已使用</el-radio-button>
-            <el-radio-button label="free">空闲</el-radio-button>
-            <el-radio-button label="reserved">预留</el-radio-button>
-          </el-radio-group>
-        </div>
-      </template>
+    <!-- 第二行：系统资源信息 -->
+    <el-row>
+      <el-col :span="24">
+        <SystemResources :status="systemStatus" />
+      </el-col>
+    </el-row>
 
-      <el-table
-        :data="filteredPins"
-        stripe
-        :default-sort="{ prop: 'gpio', order: 'ascending' }"
-        style="width: 100%"
-      >
-        <el-table-column prop="gpio" label="GPIO" width="90" sortable>
-          <template #default="{ row }">
-            <span class="gpio-num">{{ row.gpio }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="module" label="模块" width="110">
-          <template #default="{ row }">
-            <el-tag
-              v-if="row.module"
-              :type="moduleTagType(row.module)"
-              size="small"
-              effect="plain"
-            >
-              {{ row.module }}
-            </el-tag>
-            <span v-else class="text-muted">—</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="function" label="功能 / 使用者" min-width="160">
-          <template #default="{ row }">
-            {{ row.function || '—' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="110" :filters="statusFilters" :filter-method="filterStatusInTable">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" size="small">
-              {{ statusLabel(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="description" label="说明" min-width="220">
-          <template #default="{ row }">
-            <span :class="{ 'text-muted': !row.description }">{{ row.description || '—' }}</span>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+    <!-- 第三行：管脚列表 -->
+    <el-row>
+      <el-col :span="24">
+        <PinList :pins="pins" />
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import BoardImage from './components/BoardImage.vue'
+import BoardTemp from './components/BoardTemp.vue'
+import BoardControl from './components/BoardControl.vue'
+import PinList from './components/PinList.vue'
+import SystemResources from '@/views/actuators/components/SystemResources.vue'
+import { getBoardInfo, getBoardTemp, getStatus } from '@/api/esp32'
 
-// 引脚状态定义
-const STATUS = {
-  USED: 'used',       // 已使用
-  FREE: 'free',       // 空闲
-  RESERVED: 'reserved', // 预留
-  CONFLICT: 'conflict'  // 冲突
-}
+// 图片路径
+const imageUrl = new URL('@/assets/images/esp32-s3-cam.png', import.meta.url).href
 
-// ESP32-S3 GPIO 引脚分配表（共49个引脚：GPIO0 ~ GPIO48）
-// 数据来源：hw_gpio.h, hw_audio.h, video.c 实际配置
-const pins = [
-  { gpio: 0,  module: '',       function: '',           status: STATUS.FREE,     description: 'Boot strapping pin, 避免使用' },
-  { gpio: 1,  module: '执行器',  function: '电机 PWMA',   status: STATUS.USED,     description: 'LEDC PWM' },
-  { gpio: 2,  module: '执行器',  function: '电机 AIN1',   status: STATUS.USED,     description: '方向控制' },
-  { gpio: 3,  module: '传感器',  function: 'ADC1_CH2',   status: STATUS.USED,     description: '热敏电阻/光敏电阻共用' },
-  { gpio: 4,  module: '摄像头',  function: 'SCCB SDA',   status: STATUS.USED,     description: 'I2C数据' },
-  { gpio: 5,  module: '摄像头',  function: 'SCCB SCL',   status: STATUS.USED,     description: 'I2C时钟' },
-  { gpio: 6,  module: '摄像头',  function: 'VSYNC',      status: STATUS.USED,     description: '帧同步' },
-  { gpio: 7,  module: '摄像头',  function: 'HREF',       status: STATUS.USED,     description: '行同步' },
-  { gpio: 8,  module: '摄像头',  function: 'D2',         status: STATUS.USED,     description: 'DVP数据线' },
-  { gpio: 9,  module: '摄像头',  function: 'D1',         status: STATUS.USED,     description: 'DVP数据线' },
-  { gpio: 10, module: '摄像头',  function: 'D3',         status: STATUS.USED,     description: 'DVP数据线' },
-  { gpio: 11, module: '摄像头',  function: 'D0',         status: STATUS.USED,     description: 'DVP数据线' },
-  { gpio: 12, module: '摄像头',  function: 'D4',         status: STATUS.USED,     description: 'DVP数据线' },
-  { gpio: 13, module: '摄像头',  function: 'PCLK',       status: STATUS.USED,     description: '像素时钟' },
-  { gpio: 14, module: '音频',    function: 'I2S BCLK',   status: STATUS.USED,     description: '位时钟' },
-  { gpio: 15, module: '摄像头',  function: 'XCLK',       status: STATUS.USED,     description: '外部时钟 15MHz' },
-  { gpio: 16, module: '摄像头',  function: 'D7',         status: STATUS.USED,     description: 'DVP数据线' },
-  { gpio: 17, module: '摄像头',  function: 'D6',         status: STATUS.USED,     description: 'DVP数据线' },
-  { gpio: 18, module: '摄像头',  function: 'D5',         status: STATUS.USED,     description: 'DVP数据线' },
-  { gpio: 19, module: '音频',    function: 'I2S DIN',    status: STATUS.USED,     description: '数据输入' },
-  { gpio: 20, module: '音频',    function: 'I2S WS',     status: STATUS.USED,     description: '字选择/LRC' },
-  { gpio: 21, module: '音频',    function: 'GAIN',       status: STATUS.USED,     description: '增益控制' },
-  { gpio: 22, module: 'SPI Flash', function: '内部 Flash', status: STATUS.RESERVED, description: 'SPI0/1 Flash, 不可用' },
-  { gpio: 23, module: 'SPI Flash', function: '内部 Flash', status: STATUS.RESERVED, description: 'SPI0/1 Flash, 不可用' },
-  { gpio: 24, module: 'SPI Flash', function: '内部 Flash', status: STATUS.RESERVED, description: 'SPI0/1 Flash, 不可用' },
-  { gpio: 25, module: 'SPI Flash', function: '内部 Flash', status: STATUS.RESERVED, description: 'SPI0/1 Flash, 不可用' },
-  { gpio: 26, module: 'PSRAM',   function: 'Octal PSRAM CS',  status: STATUS.RESERVED, description: '片选' },
-  { gpio: 27, module: 'PSRAM',   function: 'Octal PSRAM CLK', status: STATUS.RESERVED, description: '时钟' },
-  { gpio: 28, module: 'PSRAM',   function: 'Octal PSRAM DQ0', status: STATUS.RESERVED, description: '' },
-  { gpio: 29, module: 'PSRAM',   function: 'Octal PSRAM DQ1', status: STATUS.RESERVED, description: '' },
-  { gpio: 30, module: 'PSRAM',   function: 'Octal PSRAM DQ2', status: STATUS.RESERVED, description: '' },
-  { gpio: 31, module: 'PSRAM',   function: 'Octal PSRAM DQ3', status: STATUS.RESERVED, description: '' },
-  { gpio: 32, module: 'PSRAM',   function: 'Octal PSRAM DQ4', status: STATUS.RESERVED, description: '' },
-  { gpio: 33, module: '传感器',  function: 'DHT11',      status: STATUS.USED,     description: '单总线温湿度' },
-  { gpio: 34, module: 'SPI',     function: 'CS',         status: STATUS.RESERVED, description: '片选, 未连接' },
-  { gpio: 35, module: 'SPI',     function: 'MOSI',       status: STATUS.RESERVED, description: '未连接' },
-  { gpio: 36, module: 'SPI',     function: 'CLK',        status: STATUS.RESERVED, description: '未连接' },
-  { gpio: 37, module: 'SPI',     function: 'MISO',       status: STATUS.RESERVED, description: '未连接' },
-  { gpio: 38, module: 'TF卡',    function: 'SD CMD',     status: STATUS.USED,     description: '命令线' },
-  { gpio: 39, module: 'TF卡',    function: 'SD CLK',     status: STATUS.USED,     description: '时钟线' },
-  { gpio: 40, module: 'TF卡',    function: 'SD D0',      status: STATUS.USED,     description: '数据线' },
-  { gpio: 41, module: 'I2C',     function: 'SCL',        status: STATUS.RESERVED, description: '未连接' },
-  { gpio: 42, module: '执行器',  function: '电机 AIN2',   status: STATUS.USED,     description: '方向控制' },
-  { gpio: 43, module: '系统',    function: 'UART0 TX',   status: STATUS.USED,     description: '控制台' },
-  { gpio: 44, module: '系统',    function: 'UART0 RX',   status: STATUS.USED,     description: '控制台' },
-  { gpio: 45, module: '',       function: '',            status: STATUS.FREE,     description: 'Boot strapping pin, 避免使用' },
-  { gpio: 46, module: '',       function: '',            status: STATUS.FREE,     description: 'Boot strapping pin, 避免使用' },
-  { gpio: 47, module: '音频',    function: 'SD',         status: STATUS.USED,     description: '关断控制' },
-  { gpio: 48, module: '执行器',  function: '舵机 SG90',   status: STATUS.USED,     description: 'LEDC PWM' }
-]
-
-// 状态筛选
-const filterStatus = ref('')
-
-// 按状态筛选后的引脚列表
-const filteredPins = computed(() => {
-  if (!filterStatus.value) return pins
-  return pins.filter(p => p.status === filterStatus.value)
+// 板子基本信息
+const boardInfo = reactive({
+  chip_model: '',
+  firmware_version: '',
+  board_name: '',
+  build_time: '',
+  uptime: '',
+  uptime_seconds: 0,
+  free_heap: ''
 })
 
-// 统计数据
-const stats = computed(() => ({
-  total: pins.length,
-  used: pins.filter(p => p.status === STATUS.USED).length,
-  free: pins.filter(p => p.status === STATUS.FREE).length,
-  reserved: pins.filter(p => p.status === STATUS.RESERVED).length
-}))
+// 温度数据
+const tempData = reactive({
+  chip_temp: 0,
+  ambient_temp: 0,
+  cpu_temp: 0,
+  sensor_ok: false
+})
 
-// 状态对应标签文案
-const statusLabel = (status) => ({
-  used: '已使用',
-  free: '空闲',
-  reserved: '预留',
-  conflict: '冲突'
-}[status] || '—')
+// 系统状态数据（用于系统资源显示）
+const systemStatus = reactive({
+  dram_free: 0,
+  dram_total: 0,
+  psram_free: 0,
+  psram_total: 0,
+  flash_total: 0,
+  spiffs_free: 0,
+  spiffs_total: 0,
+  sdcard_mounted: false,
+  sdcard_free: 0,
+  uptime_seconds: 0
+})
 
-// 状态对应 el-tag 类型
-const statusTagType = (status) => ({
-  used: 'success',      // 绿
-  free: 'info',         // 灰
-  reserved: 'warning',  // 黄
-  conflict: 'danger'    // 红
-}[status] || 'info')
+const tempLoading = ref(false)
+let tempTimer = null
 
-// 模块对应 el-tag 类型（区分不同模块）
-const moduleTagType = (module) => ({
-  '执行器': 'primary',
-  '传感器': 'success',
-  '摄像头': 'warning',
-  '音频': 'danger',
-  'PSRAM': 'info',
-  'SPI': 'info',
-  'SPI Flash': 'info',
-  'TF卡': 'primary',
-  'I2C': 'info',
-  '系统': ''
-}[module] || 'info')
+// 获取板子信息
+const fetchBoardInfo = async () => {
+  try {
+    const res = await getBoardInfo()
+    if (res.data && res.data.data) {
+      const data = res.data.data
+      boardInfo.chip_model = data.chip_model || ''
+      boardInfo.firmware_version = data.firmware_version || ''
+      boardInfo.board_name = data.board_name || ''
+      boardInfo.build_time = data.build_time || ''
+      boardInfo.uptime = data.uptime || ''
+      boardInfo.uptime_seconds = data.uptime_seconds || 0
+      boardInfo.free_heap = data.free_heap || ''
+    }
+  } catch (error) {
+    console.error('获取板子信息失败:', error)
+  }
+}
 
-// 表头过滤选项
-const statusFilters = [
-  { text: '已使用', value: 'used' },
-  { text: '空闲', value: 'free' },
-  { text: '预留', value: 'reserved' }
+// 获取温度数据
+const fetchTempData = async () => {
+  tempLoading.value = true
+  try {
+    const res = await getBoardTemp()
+    if (res.data && res.data.data) {
+      const data = res.data.data
+      tempData.chip_temp = data.chip_temp || 0
+      tempData.ambient_temp = data.ambient_temp || 0
+      tempData.cpu_temp = data.cpu_temp || 0
+      tempData.sensor_ok = data.sensor_ok || false
+    }
+  } catch (error) {
+    console.error('获取温度数据失败:', error)
+  } finally {
+    tempLoading.value = false
+  }
+}
+
+// 获取系统状态数据
+const fetchSystemStatus = async () => {
+  try {
+    const res = await getStatus()
+    if (res.data) {
+      // 更新系统资源数据
+      systemStatus.dram_free = res.data.dram_free || 0
+      systemStatus.dram_total = res.data.dram_total || 0
+      systemStatus.psram_free = res.data.psram_free || 0
+      systemStatus.psram_total = res.data.psram_total || 0
+      systemStatus.flash_total = res.data.flash_total || 0
+      systemStatus.spiffs_free = res.data.spiffs_free || 0
+      systemStatus.spiffs_total = res.data.spiffs_total || 0
+      systemStatus.sdcard_mounted = res.data.sdcard_mounted || false
+      systemStatus.sdcard_free = res.data.sdcard_free || 0
+      systemStatus.uptime_seconds = res.data.uptime_seconds || 0
+    }
+  } catch (error) {
+    console.error('获取系统状态失败:', error)
+  }
+}
+
+// 系统控制事件处理
+const onReboot = () => {
+  console.log('Reboot triggered')
+}
+
+const onShutdown = () => {
+  console.log('Shutdown triggered')
+}
+
+// ========================================
+// 管脚数据定义 (静态数据)
+// ========================================
+const pins = [
+  // ========== 核心/系统占用管脚 ==========
+  { gpio: 26, module: 'SPI Flash', function: 'SPI0/1 Flash', type: 'Core', status: 'reserved', is_core: true, warning: '系统核心管脚，不可作为GPIO使用', description: '片内Flash接口，系统启动必需' },
+  { gpio: 27, module: 'SPI Flash', function: 'SPI0/1 Flash', type: 'Core', status: 'reserved', is_core: true, warning: '系统核心管脚，不可作为GPIO使用', description: '片内Flash接口，系统启动必需' },
+  { gpio: 28, module: 'SPI Flash', function: 'SPI0/1 Flash', type: 'Core', status: 'reserved', is_core: true, warning: '系统核心管脚，不可作为GPIO使用', description: '片内Flash接口，系统启动必需' },
+  { gpio: 29, module: 'SPI Flash', function: 'SPI0/1 Flash', type: 'Core', status: 'reserved', is_core: true, warning: '系统核心管脚，不可作为GPIO使用', description: '片内Flash接口，系统启动必需' },
+  { gpio: 30, module: 'PSRAM', function: 'Octal PSRAM DQ0', type: 'Core', status: 'reserved', is_core: true, warning: 'PSRAM数据线，不可作为GPIO使用', description: 'PSRAM数据线0' },
+  { gpio: 31, module: 'PSRAM', function: 'Octal PSRAM DQ1', type: 'Core', status: 'reserved', is_core: true, warning: 'PSRAM数据线，不可作为GPIO使用', description: 'PSRAM数据线1' },
+  { gpio: 32, module: 'PSRAM', function: 'Octal PSRAM DQ2', type: 'Core', status: 'reserved', is_core: true, warning: 'PSRAM数据线，不可作为GPIO使用', description: 'PSRAM数据线2' },
+  { gpio: 33, module: 'PSRAM', function: 'Octal PSRAM DQ3', type: 'Core', status: 'reserved', is_core: true, warning: 'PSRAM数据线，不可作为GPIO使用', description: 'PSRAM数据线3' },
+  { gpio: 34, module: 'PSRAM', function: 'Octal PSRAM DQ4', type: 'Core', status: 'reserved', is_core: true, warning: 'PSRAM数据线，不可作为GPIO使用', description: 'PSRAM数据线4' },
+  { gpio: 35, module: 'PSRAM', function: 'Octal PSRAM DQ5', type: 'Core', status: 'reserved', is_core: true, warning: 'PSRAM数据线，不可作为GPIO使用', description: 'PSRAM数据线5' },
+  { gpio: 36, module: 'PSRAM', function: 'Octal PSRAM DQ6', type: 'Core', status: 'reserved', is_core: true, warning: 'PSRAM数据线，不可作为GPIO使用', description: 'PSRAM数据线6' },
+  { gpio: 37, module: 'PSRAM', function: 'Octal PSRAM DQ7', type: 'Core', status: 'reserved', is_core: true, warning: 'PSRAM数据线，不可作为GPIO使用', description: 'PSRAM数据线7' },
+
+  // ========== Strapping 管脚 ==========
+  { gpio: 0, module: '系统', function: 'Boot Strapping', type: 'RTC', status: 'reserved', warning: '上电启动配置管脚，上电期间勿改变电平', description: 'GPIO0 / Boot选择 / ROM日志' },
+  { gpio: 3, module: '系统', function: 'Boot Strapping', type: 'RTC', status: 'reserved', warning: '上电启动配置管脚', description: 'GPIO3 / U0RXD / Boot配置' },
+  { gpio: 45, module: '系统', function: 'Boot Strapping', type: 'RTC', status: 'reserved', warning: '上电启动配置管脚', description: 'GPIO45 / VDD_SPI电压配置' },
+  { gpio: 46, module: '系统', function: 'Boot Strapping', type: 'RTC', status: 'reserved', warning: '上电启动配置管脚', description: 'GPIO46 / 强制下载模式' },
+
+  // ========== USB 调试管脚 ==========
+  { gpio: 19, module: '系统', function: 'USB_D-', type: 'Core', status: 'reserved', warning: 'USB调试接口，用于程序下载和日志输出', description: 'USB JTAG/Serial 信号负' },
+  { gpio: 20, module: '系统', function: 'USB_D+', type: 'Core', status: 'reserved', warning: 'USB调试接口，用于程序下载和日志输出', description: 'USB JTAG/Serial 信号正' },
+
+  // ========== RTC 晶振管脚（未使用外部晶振时可用） ==========
+  { gpio: 15, module: 'RTC', function: 'XTAL_32K_P', type: 'RTC', status: 'free', description: '32.768kHz晶振正极（未接晶振时可用）' },
+  { gpio: 16, module: 'RTC', function: 'XTAL_32K_N', type: 'RTC', status: 'free', description: '32.768kHz晶振负极（未接晶振时可用）' },
+
+  // ========== 摄像头接口 ==========
+  { gpio: 1, module: '摄像头', function: 'SCCB SDA', status: 'used', description: 'I2C 数据线，OV5640配置' },
+  { gpio: 2, module: '摄像头', function: 'SCCB SCL', status: 'used', description: 'I2C 时钟线，OV5640配置' },
+  { gpio: 3, module: '摄像头', function: 'VSYNC', status: 'used', description: '帧同步信号' },
+  { gpio: 4, module: '摄像头', function: 'HREF', status: 'used', description: '行同步信号' },
+  { gpio: 5, module: '摄像头', function: 'D2', status: 'used', description: 'DVP数据线 D2' },
+  { gpio: 6, module: '摄像头', function: 'D3', status: 'used', description: 'DVP数据线 D3' },
+  { gpio: 7, module: '摄像头', function: 'D4', status: 'used', description: 'DVP数据线 D4' },
+  { gpio: 8, module: '摄像头', function: 'D5', status: 'used', description: 'DVP数据线 D5' },
+  { gpio: 9, module: '摄像头', function: 'D6', status: 'used', description: 'DVP数据线 D6' },
+  { gpio: 10, module: '摄像头', function: 'D7', status: 'used', description: 'DVP数据线 D7' },
+  { gpio: 11, module: '摄像头', function: 'D8', status: 'used', description: 'DVP数据线 D8' },
+  { gpio: 12, module: '摄像头', function: 'D9', status: 'used', description: 'DVP数据线 D9' },
+  { gpio: 13, module: '摄像头', function: 'D10', status: 'used', description: 'DVP数据线 D10' },
+  { gpio: 14, module: '摄像头', function: 'D11', status: 'used', description: 'DVP数据线 D11' },
+  { gpio: 15, module: '摄像头', function: 'XCLK', status: 'used', description: '外部时钟 15MHz' },
+  { gpio: 16, module: '摄像头', function: 'PCLK', status: 'used', description: '像素时钟' },
+
+  // ========== 执行器接口 ==========
+  { gpio: 40, module: '执行器', function: '电机 PWMA', status: 'used', description: 'LEDC PWM电机调速' },
+  { gpio: 41, module: '执行器', function: '电机 AIN1', type: 'RTC', status: 'used', description: '电机方向控制1' },
+  { gpio: 42, module: '执行器', function: '电机 AIN2', type: 'RTC', status: 'used', description: '电机方向控制2' },
+  { gpio: 17, module: '执行器', function: '舵机 SG90', status: 'used', description: '舵机PWM控制' },
+
+  // ========== 音频接口 ==========
+  { gpio: 18, module: '音频', function: 'I2S BCLK', status: 'used', description: 'I2S 位时钟' },
+  { gpio: 19, module: '音频', function: 'I2S WS', status: 'used', description: 'I2S 字选择/LRC' },
+  { gpio: 20, module: '音频', function: 'I2S DIN', status: 'used', description: 'I2S 数据输入' },
+  { gpio: 21, module: '音频', function: 'GAIN', status: 'used', description: '音频增益控制' },
+  { gpio: 48, module: '音频', function: 'SD', status: 'used', description: '音频芯片关断控制' },
+
+  // ========== 传感器接口 ==========
+  { gpio: 4, module: '传感器', function: 'ADC1_CH0', type: 'Analog', status: 'used', description: '热敏电阻 ADC' },
+  { gpio: 5, module: '传感器', function: 'ADC1_CH1', type: 'Analog', status: 'used', description: '光敏电阻 ADC' },
+  { gpio: 6, module: '传感器', function: 'Touch 0', type: 'Analog', status: 'free', description: '电容触摸通道0（未使用）' },
+  { gpio: 7, module: '传感器', function: 'Touch 1', type: 'Analog', status: 'free', description: '电容触摸通道1（未使用）' },
+  { gpio: 8, module: '传感器', function: 'Touch 2', type: 'Analog', status: 'free', description: '电容触摸通道2（未使用）' },
+  { gpio: 9, module: '传感器', function: 'Touch 3', type: 'Analog', status: 'used', description: 'DHT11 单总线温湿度' },
+
+  // ========== TF卡接口 ==========
+  { gpio: 39, module: 'TF卡', function: 'SD CMD', type: 'RTC', status: 'used', description: 'SD卡命令线' },
+  { gpio: 40, module: 'TF卡', function: 'SD CLK', type: 'RTC', status: 'used', description: 'SD卡时钟线' },
+  { gpio: 41, module: 'TF卡', function: 'SD D0', status: 'used', description: 'SD卡数据线0' },
+  { gpio: 42, module: 'TF卡', function: 'SD D1', status: 'used', description: 'SD卡数据线1' },
+  { gpio: 43, module: 'TF卡', function: 'SD D2', status: 'used', description: 'SD卡数据线2' },
+  { gpio: 44, module: 'TF卡', function: 'SD D3', status: 'used', description: 'SD卡数据线3' },
+
+  // ========== 系统串口 ==========
+  { gpio: 43, module: '系统', function: 'UART0 TX', status: 'used', description: '串口0发送（控制台）' },
+  { gpio: 44, module: '系统', function: 'UART0 RX', status: 'used', description: '串口0接收（控制台）' },
+
+  // ========== 可用 GPIO ==========
+  { gpio: 12, module: '', function: '', status: 'free', description: '可用GPIO，任意功能映射' },
+  { gpio: 13, module: '', function: '', status: 'free', description: '可用GPIO，任意功能映射' },
+  { gpio: 21, module: '', function: '', status: 'free', description: '可用GPIO，任意功能映射' },
+  { gpio: 47, module: '', function: '', status: 'free', description: '可用GPIO，任意功能映射' },
 ]
 
-const filterStatusInTable = (value, row) => row.status === value
+// 初始化时按GPIO排序
+pins.sort((a, b) => a.gpio - b.gpio)
+
+onMounted(() => {
+  fetchBoardInfo()
+  fetchTempData()
+  fetchSystemStatus()
+  tempTimer = setInterval(() => {
+    fetchTempData()
+    fetchSystemStatus()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (tempTimer) clearInterval(tempTimer)
+})
 </script>
 
 <style scoped>
 .board-view {
-  max-width: 1000px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
-.stat-row {
+.top-row {
   margin-bottom: 20px;
-}
-
-.stat-card {
-  text-align: center;
-  padding: 10px 0;
-}
-
-.stat-card :deep(.el-card__body) {
-  padding: 18px 10px;
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: bold;
-  line-height: 1.2;
-}
-
-.stat-label {
-  margin-top: 6px;
-  font-size: 13px;
-  color: #909399;
-}
-
-.stat-total .stat-value { color: #303133; }
-.stat-used .stat-value { color: #67c23a; }
-.stat-free .stat-value { color: #909399; }
-.stat-reserved .stat-value { color: #e6a23c; }
-
-.pin-card {
-  margin-bottom: 20px;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.gpio-num {
-  font-weight: bold;
-  color: #303133;
-}
-
-.text-muted {
-  color: #c0c4cc;
 }
 </style>

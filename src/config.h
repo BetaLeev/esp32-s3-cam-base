@@ -98,6 +98,14 @@ typedef struct {
     uint16_t pump_speed;
     uint8_t servo_angle;
 
+    /* 脉冲控制 */
+    int pulse_pin;
+    uint8_t pulse_enabled;
+    uint8_t pulse_current_intensity;
+    uint32_t pulse_count;
+    float pulse_elapsed_time;
+    uint8_t pulse_pin_level;
+
     /* 网络状态 */
     uint8_t sta_connected;
     int8_t sta_rssi;

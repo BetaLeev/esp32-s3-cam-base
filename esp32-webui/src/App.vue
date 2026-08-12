@@ -15,29 +15,33 @@
           router
           class="nav-menu"
         >
-          <!-- <el-menu-item index="/actuators">
+          <el-menu-item index="/actuators">
             <el-icon><Monitor /></el-icon>
             设备控制
           </el-menu-item>
           <el-menu-item index="/sensors">
             <el-icon><DataAnalysis /></el-icon>
             环境监测
-          </el-menu-item> -->
+          </el-menu-item>
           <el-menu-item index="/video">
             <el-icon><VideoCamera /></el-icon>
             视频监控
           </el-menu-item>
-          <!-- <el-menu-item index="/files">
+          <el-menu-item index="/files">
             <el-icon><Folder /></el-icon>
             文件管理
-          </el-menu-item> -->
+          </el-menu-item>
           <el-menu-item index="/wifi">
             <el-icon><Connection /></el-icon>
-            WiFi 设置
+            网络管理
           </el-menu-item>
           <el-menu-item index="/board">
             <el-icon><Cpu /></el-icon>
             板子
+          </el-menu-item>
+          <el-menu-item index="/ai">
+            <el-icon><ChatDotRound /></el-icon>
+            AI 助手
           </el-menu-item>
         </el-menu>
         <el-text type="info" size="small" class="footer-text">
@@ -51,7 +55,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Monitor, DataAnalysis, VideoCamera, Folder, Connection, Cpu } from '@element-plus/icons-vue'
+import { Monitor, DataAnalysis, VideoCamera, Folder, Connection, Cpu, ChatDotRound } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const title = import.meta.env.VITE_APP_TITLE || 'ESP32 控制面板'

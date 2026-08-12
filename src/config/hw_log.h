@@ -72,6 +72,9 @@
 /** SPIFFS模块日志级别 */
 #define LOG_LEVEL_SPIFFS    LOG_LEVEL_INFO
 
+/** 脉冲控制模块日志级别 */
+#define LOG_LEVEL_PULSE     LOG_LEVEL_INFO
+
 /* ========================================
  * 日志宏定义 - 根据级别自动启用/禁用
  * ======================================== */
@@ -399,6 +402,31 @@
     #define SDCARD_WEB_LOGD(tag, ...) ESP_LOGD(tag, __VA_ARGS__)
 #else
     #define SDCARD_WEB_LOGD(tag, ...) do {} while(0)
+#endif
+
+/* PULSE 日志宏 */
+#if LOG_LEVEL_PULSE >= LOG_LEVEL_ERROR
+    #define PULSE_LOGE(tag, ...) ESP_LOGE(tag, __VA_ARGS__)
+#else
+    #define PULSE_LOGE(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_PULSE >= LOG_LEVEL_WARN
+    #define PULSE_LOGW(tag, ...) ESP_LOGW(tag, __VA_ARGS__)
+#else
+    #define PULSE_LOGW(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_PULSE >= LOG_LEVEL_INFO
+    #define PULSE_LOGI(tag, ...) ESP_LOGI(tag, __VA_ARGS__)
+#else
+    #define PULSE_LOGI(tag, ...) do {} while(0)
+#endif
+
+#if LOG_LEVEL_PULSE >= LOG_LEVEL_DEBUG
+    #define PULSE_LOGD(tag, ...) ESP_LOGD(tag, __VA_ARGS__)
+#else
+    #define PULSE_LOGD(tag, ...) do {} while(0)
 #endif
 
 #endif /* HW_LOG_H */

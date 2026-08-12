@@ -25,6 +25,9 @@
 #include "wifi/wifi_config.h"
 
 #include "actuators/actuators.h"
+#include "actuators/led.h"
+#include "actuators/pulse.h"
+#include "actuators/pulse_web.h"
 #include "audio/audio.h"
 #include "audio/audio_web.h"
 #include "sensors/sensors.h"
@@ -173,6 +176,18 @@ void app_main(void) {
         return;
     }
     */
+
+    /* 初始化LED模块 */
+    ret = led_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGW(TAG, "LED模块初始化失败: %s", esp_err_to_name(ret));
+    }
+
+    /* 初始化脉冲控制模块 */
+    ret = pulse_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGW(TAG, "脉冲控制模块初始化失败: %s", esp_err_to_name(ret));
+    }
 
     /* [禁用] 传感器模块 */
     /*

@@ -33,6 +33,45 @@
       </el-descriptions>
     </el-card>
 
+    <!-- 网络物理层信息 -->
+    <el-card class="phy-card">
+      <template #header>
+        <div class="card-header">
+          <span>网络物理层信息</span>
+          <el-tag type="warning" size="small">
+            <el-icon><Warning /></el-icon>
+            Mock 数据
+          </el-tag>
+        </div>
+      </template>
+      <el-descriptions :column="2" border size="small">
+        <el-descriptions-item label="协议标准">
+          IEEE 802.11 b/g/n (2.4GHz)
+        </el-descriptions-item>
+        <el-descriptions-item label="信道">
+          {{ networkPhy.channel }}
+        </el-descriptions-item>
+        <el-descriptions-item label="频段">
+          2.4 GHz (2400-2483.5 MHz)
+        </el-descriptions-item>
+        <el-descriptions-item label="带宽">
+          {{ networkPhy.bandwidth }}
+        </el-descriptions-item>
+        <el-descriptions-item label="发射功率">
+          {{ networkPhy.txPower }}
+        </el-descriptions-item>
+        <el-descriptions-item label="最大速率">
+          {{ networkPhy.maxRate }}
+        </el-descriptions-item>
+        <el-descriptions-item label="PHY模式">
+          {{ networkPhy.phyMode }}
+        </el-descriptions-item>
+        <el-descriptions-item label="RSSI范围">
+          {{ networkPhy.rssiRange }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </el-card>
+
     <el-card class="config-card">
       <template #header>
         <span>WiFi 配置</span>
@@ -92,7 +131,7 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { Refresh, Search, Warning } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -106,6 +145,16 @@ const wifiStatus = reactive({
   rssi: 0,
   ip: '',
   auto_connect: true
+})
+
+// 网络物理层信息 (Mock数据)
+const networkPhy = reactive({
+  channel: 6,
+  bandwidth: '20 MHz',
+  txPower: '20 dBm',
+  maxRate: '72.2 Mbps',
+  phyMode: '802.11n',
+  rssiRange: '-90 dBm ~ -30 dBm'
 })
 
 const wifiForm = reactive({
@@ -290,9 +339,16 @@ onUnmounted(() => {
 }
 
 .status-card,
+.phy-card,
 .config-card,
 .scan-card {
   margin-bottom: 20px;
+}
+
+.phy-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .signal-excellent {

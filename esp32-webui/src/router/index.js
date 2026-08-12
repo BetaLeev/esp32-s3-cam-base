@@ -52,6 +52,12 @@ const routes = [
     name: 'Board',
     component: () => import('@/views/board/index.vue'),
     meta: { title: '板子' }
+  },
+  {
+    path: '/ai',
+    name: 'AI',
+    component: () => import('@/views/ai/index.vue'),
+    meta: { title: 'AI 助手' }
   }
 ]
 
