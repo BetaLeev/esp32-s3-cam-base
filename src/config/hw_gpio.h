@@ -50,6 +50,13 @@
 #define GPIO_ADC_THERMISTOR    GPIO_NUM_3   /**< 热敏电阻 - ADC1_CH2 */
 #define GPIO_ADC_PHOTOSENSOR   GPIO_NUM_3   /**< 光敏电阻 - 暂与热敏复用，接线以实际为准 */
 
+/**
+ * @brief 土壤湿度传感器 (LM393)
+ * - 使用 GPIO3 (ADC1_CH2)，与热敏电阻共用引脚
+ * - 湿度越高，ADC 值越低
+ */
+#define GPIO_SOILHUMIDITY      GPIO_NUM_3   /**< 土壤湿度传感器 - ADC1_CH2 */
+
 /* ========================================
  * 执行器引脚
  * ======================================== */

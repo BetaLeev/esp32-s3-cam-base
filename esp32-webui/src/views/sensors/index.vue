@@ -29,14 +29,21 @@
         </el-col>
       </el-row>
       <el-row :gutter="20" style="margin-top: 20px">
-        <el-col :span="12">
+        <el-col :span="8">
           <div class="sensor-item">
             <div class="sensor-icon">💧</div>
             <div class="sensor-value">{{ formatValue(data.dht11?.humidity) }}<span class="unit">%</span></div>
             <div class="sensor-label">DHT11湿度</div>
           </div>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="8">
+          <div class="sensor-item">
+            <div class="sensor-icon">🌱</div>
+            <div class="sensor-value">{{ formatValue(data.soilhumidity?.humidity) }}<span class="unit">%</span></div>
+            <div class="sensor-label">土壤湿度</div>
+          </div>
+        </el-col>
+        <el-col :span="8">
           <div class="sensor-item">
             <div class="sensor-icon">📶</div>
             <div class="sensor-value">{{ wifiRssi ?? '--' }}<span class="unit">dBm</span></div>
@@ -44,6 +51,13 @@
           </div>
         </el-col>
       </el-row>
+    </el-card>
+
+    <el-card class="soil-card">
+      <template #header>
+        <span>土壤湿度详情</span>
+      </template>
+      <SoilHumidityCard :data="data.soilhumidity" :loading="loading" @refresh="fetchData" />
     </el-card>
 
     <el-card class="config-card">
@@ -65,15 +79,26 @@
             {{ data.dht11?.valid ? '在线' : '离线' }}
           </el-tag>
         </el-descriptions-item>
+        <el-descriptions-item label="土壤湿度">
+          GPIO {{ data.soilhumidity?.gpio || '--' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="土壤湿度状态">
+          <el-tag :type="data.soilhumidity?.humidity !== undefined ? 'success' : 'info'" size="small">
+            {{ data.soilhumidity?.status || '未知' }}
+          </el-tag>
+        </el-descriptions-item>
       </el-descriptions>
       <div class="raw-data" v-if="showRaw">
         <el-divider content-position="left">原始数据</el-divider>
-        <el-descriptions :column="2" border size="small">
+        <el-descriptions :column="3" border size="small">
           <el-descriptions-item label="热敏原始值">
             {{ data.thermistor?.raw || 0 }}
           </el-descriptions-item>
           <el-descriptions-item label="光敏原始值">
             {{ data.photosensor?.raw || 0 }}
+          </el-descriptions-item>
+          <el-descriptions-item label="土壤湿度原始值">
+            {{ data.soilhumidity?.raw || 0 }}
           </el-descriptions-item>
         </el-descriptions>
       </div>
@@ -90,6 +115,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { getSensorsData, getNetwork } from '@/api/esp32'
+import SoilHumidityCard from './components/SoilHumidityCard.vue'
 
 const loading = ref(false)
 const showRaw = ref(false)
@@ -97,7 +123,8 @@ const wifiRssi = ref(null)
 const data = reactive({
   thermistor: null,
   photosensor: null,
-  dht11: null
+  dht11: null,
+  soilhumidity: null
 })
 
 let refreshTimer = null
@@ -149,7 +176,7 @@ onUnmounted(() => {
   margin: 0 auto;
 }
 
-.status-card, .config-card {
+.status-card, .config-card, .soil-card {
   margin-bottom: 20px;
 }
 

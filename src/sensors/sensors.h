@@ -25,6 +25,7 @@ esp_err_t sensors_create_task(void);
 #include "thermistor/thermistor.h"
 #include "photosensor/photosensor.h"
 #include "dht11/dht11.h"
+#include "soilhumidity/soilhumidity.h"
 
 /* ========================================
  * 传感器配置接口（引脚可配置）
@@ -52,6 +53,14 @@ static inline void sensors_dht11_set_gpio(gpio_num_t gpio) {
 
 static inline gpio_num_t sensors_dht11_get_gpio(void) {
     return dht11_get_gpio();
+}
+
+static inline void sensors_soilhumidity_set_gpio(gpio_num_t gpio) {
+    soilhumidity_set_gpio(gpio);
+}
+
+static inline gpio_num_t sensors_soilhumidity_get_gpio(void) {
+    return soilhumidity_get_gpio();
 }
 
 #endif /* SENSORS_H */

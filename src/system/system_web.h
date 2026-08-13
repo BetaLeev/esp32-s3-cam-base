@@ -25,6 +25,16 @@ void system_web_register_routes(httpd_handle_t server);
 esp_err_t status_web_handler(httpd_req_t *req);
 
 /* ========================================
+ * 网络状态接口
+ * ======================================== */
+
+/**
+ * @brief API: 获取网络状态
+ * GET /api/network
+ */
+esp_err_t system_web_network_handler(httpd_req_t *req);
+
+/* ========================================
  * 板子信息接口
  * ======================================== */
 

@@ -6,6 +6,7 @@
 #include "sensors_web.h"
 #include "../config.h"
 #include "../sensors/sensors.h"
+#include "soilhumidity/soilhumidity.h"
 #include "../web_module.h"
 #include <stdlib.h>
 #include <string.h>
@@ -70,6 +71,13 @@ esp_err_t sensors_web_get_data_handler(httpd_req_t *req) {
     cJSON_AddBoolToObject(dht11, "valid", g_system_status.dht11_valid);
     cJSON_AddItemToObject(data, "dht11", dht11);
 
+    cJSON *soilhumidity = cJSON_CreateObject();
+    cJSON_AddNumberToObject(soilhumidity, "gpio", soilhumidity_get_gpio());
+    cJSON_AddNumberToObject(soilhumidity, "raw", g_system_status.soil_raw);
+    cJSON_AddNumberToObject(soilhumidity, "humidity", g_system_status.soil_humidity);
+    cJSON_AddStringToObject(soilhumidity, "status", soilhumidity_get_status(g_system_status.soil_humidity));
+    cJSON_AddItemToObject(data, "soilhumidity", soilhumidity);
+
     return send_success(req, data, "获取传感器数据成功");
 }
 
@@ -103,6 +111,12 @@ esp_err_t sensors_web_get_config_handler(httpd_req_t *req) {
     cJSON_AddNumberToObject(dht11, "gpio", dht11_get_gpio());
     cJSON_AddStringToObject(dht11, "type", "dht11");
     cJSON_AddItemToObject(data, "dht11", dht11);
+
+    cJSON *soilhumidity = cJSON_CreateObject();
+    cJSON_AddNumberToObject(soilhumidity, "gpio", soilhumidity_get_gpio());
+    cJSON_AddStringToObject(soilhumidity, "type", "soilhumidity");
+    cJSON_AddStringToObject(soilhumidity, "unit", "percent");
+    cJSON_AddItemToObject(data, "soilhumidity", soilhumidity);
 
     return send_success(req, data, "获取传感器配置成功");
 }
@@ -158,6 +172,20 @@ esp_err_t sensors_web_set_config_handler(httpd_req_t *req) {
         if (gpio >= 0 && gpio <= 48) {
             dht11_set_gpio((gpio_num_t)gpio);
             ESP_LOGI(TAG, "设置 DHT11 GPIO: %d", gpio);
+            updated = true;
+        } else {
+            snprintf(message, sizeof(message), "无效的 GPIO 编号: %d", gpio);
+            cJSON_Delete(json);
+            return send_bad_request(req, message);
+        }
+    }
+
+    cJSON *soilhumidity_gpio = cJSON_GetObjectItem(json, "soilhumidity_gpio");
+    if (cJSON_IsNumber(soilhumidity_gpio)) {
+        int gpio = soilhumidity_gpio->valueint;
+        if (gpio >= 0 && gpio <= 48) {
+            soilhumidity_set_gpio((gpio_num_t)gpio);
+            ESP_LOGI(TAG, "设置土壤湿度传感器 GPIO: %d", gpio);
             updated = true;
         } else {
             snprintf(message, sizeof(message), "无效的 GPIO 编号: %d", gpio);

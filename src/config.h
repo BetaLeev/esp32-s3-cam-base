@@ -93,6 +93,10 @@ typedef struct {
     float dht11_humidity;
     uint8_t dht11_valid;
 
+    /* 土壤湿度 */
+    uint32_t soil_raw;
+    float soil_humidity;
+
     /* 执行器 */
     uint8_t pump_state;
     uint16_t pump_speed;

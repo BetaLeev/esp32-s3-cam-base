@@ -13,6 +13,7 @@
 #include "thermistor/thermistor.h"
 #include "photosensor/photosensor.h"
 #include "dht11/dht11.h"
+#include "soilhumidity/soilhumidity.h"
 
 static const char *TAG = "SENSORS";
 static bool s_task_running = false;
@@ -28,25 +29,24 @@ esp_err_t sensors_init(void)
 {
     ESP_LOGI(TAG, "初始化传感器模块...");
 
-    esp_err_t ret = thermistor_init(THERMISTOR_GPIO);
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "热敏电阻初始化失败: %s", esp_err_to_name(ret));
-    } else {
-        ESP_LOGI(TAG, "  热敏电阻 GPIO:%d", thermistor_get_gpio());
-    }
+    // 热敏电阻暂时禁用（与土壤湿度传感器共用 GPIO3）
+    ESP_LOGI(TAG, "  热敏电阻已禁用（GPIO3 与土壤湿度传感器共用）");
 
-    ret = photosensor_init(PHOTOSENSOR_GPIO);
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "光敏电阻初始化失败: %s", esp_err_to_name(ret));
-    } else {
-        ESP_LOGI(TAG, "  光敏电阻 GPIO:%d", photosensor_get_gpio());
-    }
+    // 光敏电阻暂时禁用
+    ESP_LOGI(TAG, "  光敏电阻已禁用（GPIO3 与土壤湿度传感器共用）");
 
-    ret = dht11_init(DHT11_PIN);
+    esp_err_t ret = dht11_init(DHT11_PIN);
     if (ret != ESP_OK) {
         ESP_LOGW(TAG, "DHT11 初始化失败: %s", esp_err_to_name(ret));
     } else {
         ESP_LOGI(TAG, "  DHT11 GPIO:%d", dht11_get_gpio());
+    }
+
+    ret = soilhumidity_init(SOILHUMIDITY_DEFAULT_GPIO);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "土壤湿度传感器初始化失败: %s", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "  土壤湿度传感器 GPIO:%d", soilhumidity_get_gpio());
     }
 
     ESP_LOGI(TAG, "传感器模块初始化完成");
@@ -55,21 +55,22 @@ esp_err_t sensors_init(void)
 
 static void sensors_task(void *pvParameters)
 {
-    thermistor_data_t thermistor_data;
-    photosensor_data_t photosensor_data;
     dht11_data_t dht11_data;
+    soilhumidity_data_t soilhumidity_data;
 
-    ESP_LOGI(TAG, "传感器任务启动");
+    SENSORS_LOGI(TAG, "传感器任务启动");
     s_task_running = true;
 
     while (s_task_running) {
-        thermistor_read(&thermistor_data);
-        g_system_status.thermistor_raw = thermistor_data.raw;
-        g_system_status.thermistor_temp = thermistor_data.temperature;
+        SENSORS_LOGI(TAG, "===== 传感器轮询开始 =====");
 
-        photosensor_read(&photosensor_data);
-        g_system_status.photosensor_raw = photosensor_data.raw;
-        g_system_status.light = photosensor_data.lux;
+        // 热敏电阻已禁用
+        g_system_status.thermistor_raw = 0;
+        g_system_status.thermistor_temp = 0;
+
+        // 光敏电阻已禁用
+        g_system_status.photosensor_raw = 0;
+        g_system_status.light = 0;
 
         esp_err_t ret = dht11_read(&dht11_data);
         if (ret == ESP_OK) {
@@ -80,6 +81,14 @@ static void sensors_task(void *pvParameters)
             g_system_status.dht11_valid = 0;
         }
 
+        SENSORS_LOGI(TAG, "准备读取土壤湿度...");
+        soilhumidity_read(&soilhumidity_data);
+        SENSORS_LOGI(TAG, "土壤湿度读取完成: raw=%lu, humidity=%.1f%%", 
+                     (unsigned long)soilhumidity_data.raw, soilhumidity_data.humidity);
+        g_system_status.soil_raw = soilhumidity_data.raw;
+        g_system_status.soil_humidity = soilhumidity_data.humidity;
+
+        SENSORS_LOGI(TAG, "===== 传感器轮询结束 =====");
         g_system_status.version++;
         vTaskDelay(pdMS_TO_TICKS(3000));
     }
@@ -156,4 +165,14 @@ float sensors_dht11_get_humidity(void)
 bool sensors_dht11_is_valid(void)
 {
     return dht11_is_valid();
+}
+
+uint32_t sensors_read_soilhumidity_raw(void)
+{
+    return soilhumidity_read_raw();
+}
+
+float sensors_calculate_soilhumidity(uint32_t raw_value)
+{
+    return soilhumidity_calculate(raw_value);
 }

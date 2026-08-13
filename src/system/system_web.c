@@ -7,6 +7,7 @@
 #include "../config.h"
 #include "../web_module.h"
 #include "../actuators/led.h"
+#include "../wifi/wifi.h"
 #include "esp_http_server.h"
 #include "cJSON.h"
 #include "driver/gpio.h"
@@ -19,6 +20,9 @@ void system_web_register_routes(httpd_handle_t server)
     httpd_uri_t routes[] = {
         // 统一状态接口
         {.uri = "/api/status",             .method = HTTP_GET,  .handler = status_web_handler},
+
+        // 网络状态
+        {.uri = "/api/network",            .method = HTTP_GET,  .handler = system_web_network_handler},
 
         // 板子信息
         {.uri = "/api/system/info",        .method = HTTP_GET,  .handler = system_web_info_handler},
@@ -320,6 +324,29 @@ esp_err_t system_web_shutdown_handler(httpd_req_t *req)
     system_shutdown(wakeup_pin, wakeup_level);
 
     return ESP_OK;  // 不会执行到这里
+}
+
+/**
+ * @brief API: 获取网络状态
+ * GET /api/network
+ */
+esp_err_t system_web_network_handler(httpd_req_t *req)
+{
+    if (req->method != HTTP_GET) {
+        return send_bad_request(req, "仅支持 GET 请求");
+    }
+
+    cJSON *data = cJSON_CreateObject();
+    if (!data) {
+        return send_internal_error(req, "创建响应数据失败");
+    }
+
+    // WiFi 信号强度
+    cJSON_AddNumberToObject(data, "rssi", wifi_get_sta_rssi());
+    cJSON_AddBoolToObject(data, "connected", g_system_status.sta_connected);
+    cJSON_AddStringToObject(data, "bssid", g_system_status.sta_bssid);
+
+    return send_success(req, data, "获取网络状态成功");
 }
 
 /**

@@ -190,14 +190,11 @@ void app_main(void) {
         MAIN_LOGW(TAG, "脉冲控制模块初始化失败: %s", esp_err_to_name(ret));
     }
 
-    /* [禁用] 传感器模块 */
-    /*
+    /* 传感器模块初始化 */
     ret = sensors_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "传感器模块初始化失败: %s", esp_err_to_name(ret));
-        return;
     }
-    */
 
     /* 初始化摄像头视频模块（异步启动，不阻塞主流程） */
     ret = video_init_async();
@@ -256,13 +253,11 @@ void app_main(void) {
         MAIN_LOGW(TAG, "AI模块初始化失败: %s", esp_err_to_name(ret));
     }
 
-    /* [禁用] 传感器后台轮询任务 */
-    /*
+    /* 传感器后台轮询任务 */
     ret = sensors_create_task();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "传感器任务创建失败: %s", esp_err_to_name(ret));
     }
-    */
 
     /* 创建系统监控任务 */
     BaseType_t task_ret =

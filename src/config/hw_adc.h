@@ -55,4 +55,13 @@
 #define PHOTOSENSOR_MAX_LUX    1000        /**< 最大光照 (直射阳光) */
 #define PHOTOSENSOR_RESISTOR   10000       /**< 分压电阻 10KΩ */
 
+/**
+ * @brief 土壤湿度传感器 (LM393) 参数
+ * - 干土 ADC 值: ~4095 (高电压)
+ * - 湿土 ADC 值: ~500 (低电压)
+ */
+#define SOILHUMIDITY_DRY_ADC   4095        /**< 干土 ADC 值 */
+#define SOILHUMIDITY_WET_ADC   500         /**< 湿土 ADC 值 */
+#define SOILHUMIDITY_GPIO       GPIO_NUM_3  /**< GPIO3 = ADC_CHANNEL_2 */
+
 #endif /* HW_ADC_H */
