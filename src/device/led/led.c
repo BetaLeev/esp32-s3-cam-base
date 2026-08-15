@@ -6,7 +6,7 @@
  */
 
 #include "led.h"
-#include "../config.h"
+#include "../../config.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
@@ -16,9 +16,9 @@
 
 static const char *TAG = "LED";
 
-// LED配置和状态 - 使用GPIO0（strapping引脚，启动后可用，避免与电机GPIO2冲突）
+// LED配置和状态 - 默认未设置引脚
 static led_config_t s_led_config = {
-    .pin = GPIO_NUM_0,
+    .pin = (gpio_num_t)-1,  // -1 表示未设置
     .mode = LED_MODE_BLINK,
     .initial_level = 1,
     .high_duration = 1.0f,
@@ -59,9 +59,16 @@ static float s_phase_remaining_ms = 0;
  */
 static void set_gpio_level(uint8_t level)
 {
-    gpio_set_level(s_led_config.pin, level);
-    s_led_status.current_level = level;
+    if (s_led_config.pin != (gpio_num_t)-1) {
+        gpio_set_level(s_led_config.pin, level);
+        s_led_status.current_level = level;
+    }
 }
+
+/**
+ * @brief 内部停止函数声明（前向声明）
+ */
+static void led_stop_internal(void);
 
 /**
  * @brief LED定时器回调
@@ -126,8 +133,8 @@ static void led_task(void *arg)
                     if (s_repeat_remaining > 0) {
                         s_repeat_remaining--;
                         if (s_repeat_remaining == 0) {
-                            // 停止LED
-                            led_stop();
+                            // 停止LED（使用内部函数，因为已持有锁）
+                            led_stop_internal();
                             LED_LOGI(TAG, "LED控制完成, 执行次数: %lu", s_led_status.executed_count);
                         }
                     }
@@ -153,32 +160,14 @@ static void led_task(void *arg)
 
 esp_err_t led_init(void)
 {
-    ESP_LOGI(TAG, "初始化LED模块...");
+    LED_LOGI(TAG, "初始化LED模块...");
 
     // 创建互斥锁
     s_led_mutex = xSemaphoreCreateMutexStatic(&s_led_mutex_buffer);
     if (s_led_mutex == NULL) {
-        ESP_LOGE(TAG, "创建互斥锁失败");
+        LED_LOGE(TAG, "创建互斥锁失败");
         return ESP_FAIL;
     }
-
-    // 配置GPIO
-    gpio_config_t io_conf = {
-        .pin_bit_mask = (1ULL << s_led_config.pin),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
-
-    esp_err_t ret = gpio_config(&io_conf);
-    if (ret != ESP_OK) {
-        LED_LOGE(TAG, "配置GPIO失败: %s", esp_err_to_name(ret));
-        return ret;
-    }
-
-    // 初始电平为低
-    gpio_set_level(s_led_config.pin, 0);
 
     // 创建软件定时器 (100ms周期)
     s_led_timer = xTimerCreateStatic(
@@ -211,7 +200,7 @@ esp_err_t led_init(void)
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "LED模块初始化完成, 默认引脚: GPIO%d", s_led_config.pin);
+    LED_LOGI(TAG, "LED模块初始化完成");
     return ESP_OK;
 }
 
@@ -228,7 +217,7 @@ esp_err_t led_configure(const led_config_t *config)
 
     // 停止当前LED控制
     if (s_led_status.enabled) {
-        led_stop();
+        led_stop_internal();
     }
 
     // 更新配置
@@ -239,23 +228,28 @@ esp_err_t led_configure(const led_config_t *config)
     s_led_config.low_duration = config->low_duration;
     s_led_config.repeat_count = config->repeat_count;
 
-    // 重新配置GPIO
-    gpio_config_t io_conf = {
-        .pin_bit_mask = (1ULL << s_led_config.pin),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
+    // 校验引脚合法性
+    if (s_led_config.pin >= 0 && s_led_config.pin <= 39) {
+        // 配置GPIO
+        gpio_config_t io_conf = {
+            .pin_bit_mask = (1ULL << s_led_config.pin),
+            .mode = GPIO_MODE_OUTPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE
+        };
 
-    esp_err_t ret = gpio_config(&io_conf);
-    if (ret != ESP_OK) {
-        LED_LOGE(TAG, "配置GPIO失败: %s", esp_err_to_name(ret));
+        esp_err_t ret = gpio_config(&io_conf);
+        if (ret != ESP_OK) {
+            LED_LOGE(TAG, "配置GPIO失败: %s", esp_err_to_name(ret));
+            xSemaphoreGive(s_led_mutex);
+            return ret;
+        }
+
+        // 设置初始电平
+        gpio_set_level(s_led_config.pin, s_led_config.initial_level);
+        s_led_status.current_level = s_led_config.initial_level;
     }
-
-    // 设置初始电平
-    gpio_set_level(s_led_config.pin, s_led_config.initial_level);
-    s_led_status.current_level = s_led_config.initial_level;
 
     LED_LOGI(TAG, "LED配置: pin=%d, mode=%s, high=%.1fs, low=%.1fs, repeat=%d",
              s_led_config.pin,
@@ -281,6 +275,12 @@ esp_err_t led_start(const led_config_t *config)
     if (xSemaphoreTake(s_led_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
         LED_LOGW(TAG, "获取互斥锁超时");
         return ESP_ERR_TIMEOUT;
+    }
+
+    if (s_led_config.pin < 0 || s_led_config.pin > 39) {
+        LED_LOGE(TAG, "启动失败：未设置有效的GPIO引脚");
+        xSemaphoreGive(s_led_mutex);
+        return ESP_ERR_INVALID_ARG;
     }
 
     // 初始化状态
@@ -322,6 +322,29 @@ esp_err_t led_start(const led_config_t *config)
     return ESP_OK;
 }
 
+/**
+ * @brief 内部停止函数（在持有锁时调用）
+ */
+static void led_stop_internal(void)
+{
+    // 停止定时器
+    if (s_led_timer != NULL) {
+        xTimerStop(s_led_timer, 0);
+    }
+
+    // 将引脚拉低，而不是直接调用危险的 gpio_reset_pin
+    if (s_led_config.pin >= 0 && s_led_config.pin <= 39) {
+        gpio_set_level(s_led_config.pin, 0);
+    }
+
+    // 更新状态
+    s_led_status.enabled = false;
+    s_led_status.current_level = 0;
+    s_led_status.remaining_time = 0;
+
+    LED_LOGI(TAG, "LED已停止");
+}
+
 esp_err_t led_stop(void)
 {
     if (xSemaphoreTake(s_led_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
@@ -329,16 +352,7 @@ esp_err_t led_stop(void)
         return ESP_ERR_TIMEOUT;
     }
 
-    // 停止定时器
-    xTimerStop(s_led_timer, 0);
-
-    // 关闭LED
-    gpio_set_level(s_led_config.pin, 0);
-    s_led_status.enabled = false;
-    s_led_status.current_level = 0;
-    s_led_status.remaining_time = 0;
-
-    LED_LOGI(TAG, "LED已停止");
+    led_stop_internal();
 
     xSemaphoreGive(s_led_mutex);
     return ESP_OK;
@@ -372,11 +386,14 @@ int led_get_used_pins(int *pins, int max_count)
 {
     if (pins == NULL || max_count <= 0) return 0;
 
-    // 返回当前LED使用的引脚
-    if (max_count >= 1) {
-        pins[0] = (int)s_led_config.pin;
-        return 1;
+    int count = 0;
+    if (xSemaphoreTake(s_led_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        if (s_led_config.pin >= 0 && s_led_config.pin <= 39) {
+            pins[0] = (int)s_led_config.pin;
+            count = 1;
+        }
+        xSemaphoreGive(s_led_mutex);
     }
 
-    return 0;
+    return count;
 }

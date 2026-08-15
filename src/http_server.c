@@ -8,9 +8,12 @@
 #include "system/system_web.h"
 #include "video/video_web.h"
 #include "wifi/wifi_web.h"
-#include "actuators/led_web.h"
-#include "actuators/pulse_web.h"
-#include "actuators/actuators_web.h"
+#include "device/led/led_web.h"
+#include "device/pulse/pulse_web.h"
+#include "device/motor/motor.h"
+#include "device/motor/motor_web.h"
+#include "device/servo/servo.h"
+#include "device/servo/servo_web.h"
 #include "ai/ai_web.h"
 #include "ai/ai_ws.h"
 #include <stdio.h>
@@ -64,7 +67,7 @@ esp_err_t http_server_init(void) {
     config.max_uri_handlers = 64; // ← 添加这一行！
     config.lru_purge_enable = true;
     config.send_wait_timeout = 10;
-    config.recv_wait_timeout = 10;
+    config.recv_wait_timeout = 300;
 
     esp_err_t ret = httpd_start(&s_http_server_handle, &config);
     if (ret != ESP_OK) {
@@ -96,12 +99,12 @@ esp_err_t http_server_init(void) {
     pulse_web_register_routes(s_http_server_handle);
     HTTP_LOGI(TAG, "Pulse 路由已注册");
 
-    // 注册执行器 API（水泵 + 舵机 + 电机）
+    // 注册电机 API
     {
         httpd_uri_t pump_uri = {
             .uri = "/api/pump",
             .method = HTTP_GET,
-            .handler = actuators_web_pump_handler,
+            .handler = motor_web_pump_handler,
             .user_ctx = NULL
         };
         httpd_register_uri_handler(s_http_server_handle, &pump_uri);
@@ -110,7 +113,7 @@ esp_err_t http_server_init(void) {
         httpd_uri_t servo_uri = {
             .uri = "/api/servo",
             .method = HTTP_GET,
-            .handler = actuators_web_servo_handler,
+            .handler = servo_web_handler,
             .user_ctx = NULL
         };
         httpd_register_uri_handler(s_http_server_handle, &servo_uri);
@@ -119,7 +122,7 @@ esp_err_t http_server_init(void) {
         httpd_uri_t motor_uri = {
             .uri = "/api/motor",
             .method = HTTP_GET,
-            .handler = actuators_web_motor_handler,
+            .handler = motor_web_handler,
             .user_ctx = NULL
         };
         httpd_register_uri_handler(s_http_server_handle, &motor_uri);

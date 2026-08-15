@@ -48,7 +48,15 @@ static SemaphoreHandle_t s_state_mutex = NULL;
 static StaticSemaphore_t s_mutex_buffer;
 
 static audio_i2s_state_t s_state = AUDIO_I2S_STATE_IDLE;
-static audio_i2s_info_t s_info = {0};
+static audio_i2s_info_t s_info = {
+    .state = AUDIO_I2S_STATE_IDLE,
+    .duration_ms = 0,
+    .position_ms = 0,
+    .sample_rate = 0,
+    .channels = 0,
+    .bitrate = 0,
+    .current_file = {0}
+};
 static uint8_t s_volume = 80;  // 0-100
 static bool s_initialized = false;
 static bool s_stop_requested = false;
@@ -183,11 +191,11 @@ esp_err_t audio_i2s_init(gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout)
 
 esp_err_t audio_i2s_init_default(void)
 {
-    extern gpio_num_t GPIO_AUDIO_BCLK;
-    extern gpio_num_t GPIO_AUDIO_WS;
-    extern gpio_num_t GPIO_AUDIO_DIN;
-
-    return audio_i2s_init(GPIO_AUDIO_BCLK, GPIO_AUDIO_WS, GPIO_AUDIO_DIN);
+    return audio_i2s_init(
+        (gpio_num_t)GPIO_AUDIO_BCLK,
+        (gpio_num_t)GPIO_AUDIO_WS,
+        (gpio_num_t)GPIO_AUDIO_DIN
+    );
 }
 
 esp_err_t audio_i2s_deinit(void)

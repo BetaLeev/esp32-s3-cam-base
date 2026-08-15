@@ -27,7 +27,7 @@
  * HTTP 请求超时
  * ======================================== */
 #define HTTP_TIMEOUT_MS        5000
-#define HTTP_KEEPALIVE_TIMEOUT 60
+#define HTTP_KEEPALIVE_TIMEOUT 180
 
 /* ========================================
  * CORS 配置

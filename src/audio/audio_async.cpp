@@ -55,7 +55,15 @@ static StaticSemaphore_t s_mutex_buffer;
 
 static bool s_initialized = false;
 static audio_async_state_t s_state = AUDIO_ASYNC_STATE_IDLE;
-static audio_async_info_t s_info = {0};
+static audio_async_info_t s_info = {
+    .state = AUDIO_ASYNC_STATE_IDLE,
+    .duration_ms = 0,
+    .position_ms = 0,
+    .sample_rate = 0,
+    .channels = 0,
+    .bitrate = 0,
+    .current_file = {0}
+};
 static uint8_t s_volume = 80;
 
 // ============================================================================

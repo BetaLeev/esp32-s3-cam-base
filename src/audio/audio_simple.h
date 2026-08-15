@@ -78,6 +78,13 @@ void audio_simple_get_info(audio_simple_info_t *info);
  */
 uint8_t audio_simple_get_progress(void);
 
+/**
+ * @brief 播放测试音调（程序生成正弦波和弦）
+ * @param freq_hz 频率 (Hz)
+ * @param duration_ms 持续时间 (ms)
+ */
+void audio_simple_play_tone(uint32_t freq_hz, uint32_t duration_ms);
+
 #ifdef __cplusplus
 }
 #endif

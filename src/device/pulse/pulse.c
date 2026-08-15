@@ -9,7 +9,7 @@
  */
 
 #include "pulse.h"
-#include "../config.h"
+#include "../../config.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
@@ -45,7 +45,7 @@
  * 模块状态
  * ======================================== */
 static pulse_config_t s_config = {
-    .pin = 2,
+    .pin = -1,  // -1 表示未设置
     .mode = PULSE_MODE_SINGLE,
     .intensity = 50,
     .frequency = 10,
@@ -94,7 +94,7 @@ static esp_err_t configure_ledc_timer(void)
 
     esp_err_t ret = ledc_timer_config(&timer_cfg);
     if (ret != ESP_OK) {
-        PULSE_LOGE(TAG, "LEDC定时器配置失败: %s", esp_err_to_name(ret));
+        ESP_LOGE(LOG_TAG, "LEDC定时器配置失败: %s", esp_err_to_name(ret));
         return ret;
     }
 
@@ -108,7 +108,7 @@ static esp_err_t configure_ledc_channel(int pin)
 {
     // 验证引脚范围
     if (pin < 0 || pin > 48) {
-        PULSE_LOGE(TAG, "无效的引脚号: %d", pin);
+        ESP_LOGE(LOG_TAG, "无效的引脚号: %d", pin);
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -125,7 +125,7 @@ static esp_err_t configure_ledc_channel(int pin)
 
     esp_err_t ret = gpio_config(&io_conf);
     if (ret != ESP_OK) {
-        PULSE_LOGE(TAG, "GPIO%d配置失败: %s", pin, esp_err_to_name(ret));
+        ESP_LOGE(LOG_TAG, "GPIO%d配置失败: %s", pin, esp_err_to_name(ret));
         return ret;
     }
 
@@ -147,11 +147,11 @@ static esp_err_t configure_ledc_channel(int pin)
 
     ret = ledc_channel_config(&channel_cfg);
     if (ret != ESP_OK) {
-        PULSE_LOGE(TAG, "GPIO%d LEDC通道配置失败: %s", pin, esp_err_to_name(ret));
+        ESP_LOGE(LOG_TAG, "GPIO%d LEDC通道配置失败: %s", pin, esp_err_to_name(ret));
         return ret;
     }
 
-    PULSE_LOGI(TAG, "LEDC通道配置完成: GPIO%d", pin);
+    ESP_LOGI(LOG_TAG, "LEDC通道配置完成: GPIO%d", pin);
     return ESP_OK;
 }
 
@@ -215,7 +215,7 @@ static void cleanup_old_pin(int old_pin)
     };
     gpio_config(&io_conf);
 
-    PULSE_LOGI(TAG, "GPIO%d 已清理", old_pin);
+    ESP_LOGI(LOG_TAG, "GPIO%d 已清理", old_pin);
 }
 
 /* ========================================
@@ -252,7 +252,7 @@ static void pulse_task(void *arg)
 {
     (void)arg;
 
-    PULSE_LOGI(TAG, "脉冲任务启动");
+    ESP_LOGI(LOG_TAG, "脉冲任务启动");
 
     while (1) {
         uint32_t notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -264,11 +264,6 @@ static void pulse_task(void *arg)
 
                 if (s_config.mode == PULSE_MODE_CONTINUOUS) {
                     // 连续脉冲模式 - 使用软件定时器方式
-                    // 定时器周期 10ms，累加计数
-                    // 每个脉冲周期的tick数 = period_ms / 10
-                    // 高电平tick数 = on_time / 10
-
-                    // 防止除零
                     uint32_t period_ticks = s_pulse_period_ms / PULSE_TIMER_PERIOD_MS;
                     uint32_t on_ticks = s_pulse_on_time_ms / PULSE_TIMER_PERIOD_MS;
 
@@ -279,7 +274,6 @@ static void pulse_task(void *arg)
                         on_ticks = 1;
                     }
 
-                    // 在周期内控制占空比
                     uint32_t current_tick_in_period = s_pulse_timer_ticks % period_ticks;
 
                     if (current_tick_in_period < on_ticks) {
@@ -293,7 +287,6 @@ static void pulse_task(void *arg)
                         s_status.pin_level = 0;
                     }
 
-                    // 更新已用时间
                     s_status.elapsed_time += PULSE_TIMER_PERIOD_MS / 1000.0f;
                     s_status.current_intensity = s_config.intensity;
 
@@ -307,7 +300,6 @@ static void pulse_task(void *arg)
 
                 } else if (s_config.mode == PULSE_MODE_SINGLE) {
                     // 单次脉冲模式
-                    // 防止除零，确保至少1个tick
                     uint32_t on_time_ms = s_pulse_on_time_ms > 0 ? s_pulse_on_time_ms : PULSE_TIMER_PERIOD_MS;
                     uint32_t off_time_ms = s_pulse_off_time_ms > 0 ? s_pulse_off_time_ms : PULSE_TIMER_PERIOD_MS;
 
@@ -331,10 +323,9 @@ static void pulse_task(void *arg)
                         s_status.pin_level = 0;
 
                         if (s_pulse_timer_ticks >= total_ticks) {
-                            // 脉冲完成，标记完成但不停止定时器
                             s_single_pulse_done = true;
                             s_status.current_intensity = 0;
-                            PULSE_LOGI(TAG, "单次脉冲完成");
+                            ESP_LOGI(LOG_TAG, "单次脉冲完成");
                         }
                     }
 
@@ -361,12 +352,12 @@ static void pulse_task(void *arg)
 
 esp_err_t pulse_init(void)
 {
-    PULSE_LOGI(TAG, "初始化脉冲控制模块...");
+    ESP_LOGI(LOG_TAG, "初始化脉冲控制模块...");
 
     // 创建互斥锁
     s_mutex = xSemaphoreCreateMutexStatic(&s_mutex_buffer);
     if (s_mutex == NULL) {
-        PULSE_LOGE(TAG, "创建互斥锁失败");
+        ESP_LOGE(LOG_TAG, "创建互斥锁失败");
         return ESP_FAIL;
     }
 
@@ -379,7 +370,7 @@ esp_err_t pulse_init(void)
     // 初始化状态
     memset(&s_status, 0, sizeof(s_status));
 
-    PULSE_LOGI(TAG, "脉冲控制模块初始化完成");
+    ESP_LOGI(LOG_TAG, "脉冲控制模块初始化完成");
     return ESP_OK;
 }
 
@@ -402,7 +393,7 @@ esp_err_t pulse_deinit(void)
         s_mutex = NULL;
     }
 
-    PULSE_LOGI(TAG, "脉冲控制模块已停止");
+    ESP_LOGI(LOG_TAG, "脉冲控制模块已停止");
     return ESP_OK;
 }
 
@@ -410,7 +401,7 @@ esp_err_t pulse_start(int pin, pulse_mode_t mode, uint8_t intensity,
                       uint32_t frequency, uint32_t pulse_width)
 {
     if (pin < 0 || pin > 48) {
-        PULSE_LOGE(TAG, "无效的引脚号: %d", pin);
+        ESP_LOGE(LOG_TAG, "无效的引脚号: %d", pin);
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -431,7 +422,7 @@ esp_err_t pulse_start(int pin, pulse_mode_t mode, uint8_t intensity,
     }
 
     if (xSemaphoreTake(s_mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
-        PULSE_LOGE(TAG, "无法获取互斥锁");
+        ESP_LOGE(LOG_TAG, "无法获取互斥锁");
         return ESP_ERR_TIMEOUT;
     }
 
@@ -462,37 +453,32 @@ esp_err_t pulse_start(int pin, pulse_mode_t mode, uint8_t intensity,
 
     // 计算脉冲时间参数
     if (mode == PULSE_MODE_CONTINUOUS) {
-        // 连续模式：频率控制周期，占空比由 intensity 控制
-        // period_ms = 1000 / frequency (每个脉冲周期)
-        // 高电平时间 = period_ms * intensity / 100 (由强度决定)
-        // pulse_width 参数在连续模式下被忽略（或者理解为占空比参考值）
         uint32_t period_ms = 1000 / frequency;
         if (period_ms == 0) {
-            period_ms = 1;  // 防止除零
+            period_ms = 1;
         }
 
-        // 高电平时间由强度和周期决定
-        uint32_t on_time = (period_ms * intensity + 99) / 100;  // 四舍五入
+        uint32_t on_time = (period_ms * intensity + 99) / 100;
         if (on_time == 0 && intensity > 0) {
-            on_time = 1;  // 至少1ms
+            on_time = 1;
         }
         if (on_time >= period_ms) {
-            on_time = period_ms - 1;  // 确保有低电平时间
+            on_time = period_ms - 1;
         }
 
         s_pulse_on_time_ms = on_time;
         s_pulse_off_time_ms = period_ms - on_time;
         s_pulse_period_ms = period_ms;
 
-        PULSE_LOGI(TAG, "连续脉冲: GPIO%d, 频率=%lu Hz, 脉冲宽度=%lu ms, 强度=%d%%",
+        ESP_LOGI(LOG_TAG, "连续脉冲: GPIO%d, 频率=%lu Hz, 脉冲宽度=%lu ms, 强度=%d%%",
                    pin, frequency, pulse_width, intensity);
     } else {
         // 单次模式
         s_pulse_on_time_ms = pulse_width;
-        s_pulse_off_time_ms = 100;  // 低电平持续时间
+        s_pulse_off_time_ms = 100;
         s_pulse_period_ms = pulse_width + s_pulse_off_time_ms;
 
-        PULSE_LOGI(TAG, "单次脉冲: GPIO%d, 脉冲宽度=%lu ms, 强度=%d%%",
+        ESP_LOGI(LOG_TAG, "单次脉冲: GPIO%d, 脉冲宽度=%lu ms, 强度=%d%%",
                    pin, pulse_width, intensity);
     }
 
@@ -515,7 +501,7 @@ esp_err_t pulse_start(int pin, pulse_mode_t mode, uint8_t intensity,
         );
 
         if (s_pulse_task_handle == NULL) {
-            PULSE_LOGE(TAG, "创建脉冲任务失败");
+            ESP_LOGE(LOG_TAG, "创建脉冲任务失败");
             xSemaphoreGive(s_mutex);
             return ESP_ERR_NO_MEM;
         }
@@ -526,14 +512,14 @@ esp_err_t pulse_start(int pin, pulse_mode_t mode, uint8_t intensity,
         s_pulse_timer = xTimerCreateStatic(
             "pulse_timer",
             pdMS_TO_TICKS(PULSE_TIMER_PERIOD_MS),
-            pdTRUE,  // 自动重载
+            pdTRUE,
             NULL,
             pulse_timer_callback,
             &s_pulse_timer_buffer
         );
 
         if (s_pulse_timer == NULL) {
-            PULSE_LOGE(TAG, "创建定时器失败");
+            ESP_LOGE(LOG_TAG, "创建定时器失败");
             xSemaphoreGive(s_mutex);
             return ESP_ERR_NO_MEM;
         }
@@ -541,12 +527,12 @@ esp_err_t pulse_start(int pin, pulse_mode_t mode, uint8_t intensity,
 
     // 启动定时器
     if (!xTimerStart(s_pulse_timer, pdMS_TO_TICKS(100))) {
-        PULSE_LOGE(TAG, "启动定时器失败");
+        ESP_LOGE(LOG_TAG, "启动定时器失败");
         xSemaphoreGive(s_mutex);
         return ESP_FAIL;
     }
 
-    PULSE_LOGI(TAG, "脉冲控制已启动");
+    ESP_LOGI(LOG_TAG, "脉冲控制已启动");
     xSemaphoreGive(s_mutex);
 
     return ESP_OK;
@@ -575,16 +561,20 @@ esp_err_t pulse_stop(void)
     // 停止 PWM 输出
     stop_pwm();
 
+    // 清空引脚配置
+    s_config.pin = -1;
+
     // 重置状态
     s_status.current_intensity = 0;
     s_status.pin_level = 0;
 
     // 同步到全局状态
+    g_system_status.pulse_pin = -1;
     g_system_status.pulse_enabled = false;
     g_system_status.pulse_current_intensity = 0;
     g_system_status.pulse_pin_level = 0;
 
-    PULSE_LOGI(TAG, "脉冲控制已停止");
+    ESP_LOGI(LOG_TAG, "脉冲控制已停止，引脚已释放");
     xSemaphoreGive(s_mutex);
 
     return ESP_OK;

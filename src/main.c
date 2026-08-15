@@ -1,7 +1,6 @@
 /**
  * @file main.c
- * @brief ESP32-S3智能水泵控制系统 - 主程序入口（仅 Wi-Fi 调试模式）
- * @note 暂时注释掉所有与 Wi-Fi 无关的硬件外设及任务
+ * @brief ESP32-S3智能水泵控制系统 - 主程序入口（异步音频集成版）
  */
 #include "esp_clk_tree.h"
 #include "esp_flash.h"
@@ -24,12 +23,14 @@
 #include "wifi/wifi.h"
 #include "wifi/wifi_config.h"
 
-#include "actuators/actuators.h"
-#include "actuators/led.h"
-#include "actuators/pulse.h"
-#include "actuators/pulse_web.h"
+#include "device/servo/servo.h"
+#include "device/motor/motor.h"
+#include "device/led/led.h"
+#include "device/pulse/pulse.h"
+#include "device/pulse/pulse_web.h"
 #include "audio/audio.h"
 #include "audio/audio_web.h"
+#include "audio/audio_simple.h" // 引入异步音频模块头文件
 #include "sensors/sensors.h"
 #include "system/system.h"
 #include "video/video.h"
@@ -152,7 +153,7 @@ static void app_main_task(void *pvParameters) {
  */
 void app_main(void) {
     printf(">>> printf: app_main entered\n");
-    esp_log_level_set("MAIN", ESP_LOG_INFO); // ← 加在这里，恢复 MAIN 的 INFO 日志
+    esp_log_level_set("MAIN", ESP_LOG_INFO);
 
     MAIN_LOGI(TAG, ">>> app_main 第一行");
     g_system_start_time = esp_timer_get_time();
@@ -162,18 +163,23 @@ void app_main(void) {
     MAIN_LOGI(TAG, "固件编译时间: %s", FIRMWARE_BUILD_TIME);
     ESP_EARLY_LOGI("TEST", "app_main entered immediately");
     ESP_EARLY_LOGI("MAIN", ">>> FORCE OUTPUT - app_main entered");
-    /* 1. 初始化 NVS Flash（Wi-Fi 保存 SSID/密码必须依赖 NVS） */
+    
+    /* 1. 初始化 NVS Flash */
     esp_err_t ret = nvs_flash_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "NVS Flash初始化失败: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* 初始化执行器模块（水泵 + 舵机） */
-    ret = actuators_init();
+    /* 初始化执行器模块（电机 + 舵机） */
+    ret = motor_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGE(TAG, "电机模块初始化失败: %s", esp_err_to_name(ret));
+    }
+
+    ret = servo_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "执行器模块初始化失败: %s", esp_err_to_name(ret));
-        // 不阻塞，继续运行
     }
 
     /* 初始化LED模块 */
@@ -188,13 +194,13 @@ void app_main(void) {
         MAIN_LOGW(TAG, "脉冲控制模块初始化失败: %s", esp_err_to_name(ret));
     }
 
-    /* 初始化音频模块 (MAX98357) */
-    ret = audio_init();
+    /* 【核心更改】初始化异步音频模块（替代原先容易崩溃的同步 audio_init） */
+    ret = audio_simple_init();
     if (ret != ESP_OK) {
-        MAIN_LOGW(TAG, "音频模块初始化失败: %s", esp_err_to_name(ret));
+        MAIN_LOGW(TAG, "异步音频模块初始化失败: %s", esp_err_to_name(ret));
     } else {
-        MAIN_LOGI(TAG, "音频模块初始化成功");
-        MAIN_LOGI(TAG, "提示: 使用 POST /api/audio/test 播放测试音调");
+        MAIN_LOGI(TAG, "异步音频模块初始化成功 (后台任务运行在 Core 1)");
+        MAIN_LOGI(TAG, "提示: 使用 POST /api/audio/play 异步播放音乐");
     }
 
     /* 传感器模块初始化 */
@@ -222,34 +228,34 @@ void app_main(void) {
         MAIN_LOGW(TAG, "Wi-Fi配置管理初始化失败: %s", esp_err_to_name(ret));
     }
 
-    /* 4. 启动 DNS 服务器（用于 AP 模式下的域名解析/强制门户） */
+    /* 4. 启动 DNS 服务器 */
     ret = dns_server_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "DNS服务器启动失败: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* 5. 初始化 SPIFFS 文件系统（用于挂载 Web 前端网页资源） */
+    /* 5. 初始化 SPIFFS 文件系统 */
     ret = spiffs_web_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "SPIFFS初始化失败: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* 6. 启动 HTTP 服务器（响应 Web 页面和 Wi-Fi 配网 API） */
+    /* 6. 启动 HTTP 服务器 */
     ret = http_server_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "HTTP服务器启动失败: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* 7. 注册所有模块的 Web API 路由（HTTP服务器初始化后才能注册） */
+    /* 7. 注册所有模块的 Web API 路由 */
     ret = audio_web_init();
     if (ret != ESP_OK) {
         MAIN_LOGW(TAG, "音频Web接口注册失败: %s", esp_err_to_name(ret));
     }
 
-    /* 7. 初始化系统管理模块 */
+    /* 初始化系统管理模块 */
     ret = system_init();
     if (ret != ESP_OK) {
         MAIN_LOGW(TAG, "系统管理模块初始化失败: %s", esp_err_to_name(ret));

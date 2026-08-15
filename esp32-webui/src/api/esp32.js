@@ -219,7 +219,7 @@ export const uploadFile = (file, path = '') => {
   }
 
   return axios.post(url, file, {
-    timeout: 60000,
+    timeout: 600000,  // 10分钟
     headers: {
       'Content-Type': 'application/octet-stream'
     }

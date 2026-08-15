@@ -1,8 +1,24 @@
 # ESP-IDF Component CMakeLists.txt
 
-FILE(GLOB_RECURSE app_sources ${CMAKE_SOURCE_DIR}/src/*.*)
-
-# 排除 web 目录下的源文件
+# 源文件列表（排除临时文件）
+FILE(GLOB_RECURSE app_sources
+    ${CMAKE_SOURCE_DIR}/src/*.c
+    ${CMAKE_SOURCE_DIR}/src/*.cpp
+    ${CMAKE_SOURCE_DIR}/src/device/led/*.c
+    ${CMAKE_SOURCE_DIR}/src/device/pulse/*.c
+    ${CMAKE_SOURCE_DIR}/src/device/motor/*.c
+    ${CMAKE_SOURCE_DIR}/src/device/servo/*.c
+    ${CMAKE_SOURCE_DIR}/src/sdcard/*.c
+    ${CMAKE_SOURCE_DIR}/src/sensors/*.c
+    ${CMAKE_SOURCE_DIR}/src/sensors/**/*.c
+    ${CMAKE_SOURCE_DIR}/src/system/*.c
+    ${CMAKE_SOURCE_DIR}/src/wifi/*.c
+    ${CMAKE_SOURCE_DIR}/src/video/*.c
+    ${CMAKE_SOURCE_DIR}/src/audio/*.c
+    ${CMAKE_SOURCE_DIR}/src/audio/*.cpp
+    ${CMAKE_SOURCE_DIR}/src/ai/*.c
+    ${CMAKE_SOURCE_DIR}/src/config/*.c
+)
 
 idf_component_register(SRCS ${app_sources}
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
@@ -17,5 +33,5 @@ idf_component_register(SRCS ${app_sources}
         spiffs            # SPIFFS文件系统
         driver            # GPIO、PWM等硬件驱动
         mbedtls           # TLS/SSL加密
-        cjson
+        cjson             # JSON 解析
 )

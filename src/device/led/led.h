@@ -43,7 +43,7 @@ typedef struct {
     uint32_t executed_count;   /**< 已执行次数 */
     uint32_t total_count;      /**< 总次数 */
     float elapsed_time;        /**< 已用时间(秒) */
-    float remaining_time;      /**< 剩余时间(秒) */
+    float remaining_time;       /**< 剩余时间(秒) */
 } led_status_t;
 
 /* ========================================
@@ -95,7 +95,7 @@ int led_get_used_pins(int *pins, int max_count);
 /* ========================================
  * LED日志宏
  * ======================================== */
-#include "../config.h"
+#include "../../config.h"
 
 #ifndef LED_LOGD
 #define LED_LOGD(tag, format, ...) ESP_LOGD(tag, format, ##__VA_ARGS__)

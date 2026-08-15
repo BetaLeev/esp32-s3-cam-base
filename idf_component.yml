@@ -1,0 +1,44 @@
+## ESP-IDF Component Manager 依赖配置
+## 这个文件声明了项目所需的所有外部组件
+## 使用方法: idf.py reconfigure 或 PlatformIO Build 会自动下载
+
+version: "1.0.0"
+
+description: ESP32-S3 Camera + Audio System
+
+## 核心依赖
+dependencies:
+  ## ESP-ADF Audio Pipeline - 音频处理管道（包含 MP3 解码器）
+  espressif/audio_pipeline: "^1.0.0"
+
+  ## ESP-ADF Audio Element - 音频元素基类
+  espressif/audio_element: "^1.0.0"
+
+  ## ESP-ADF Audio Common - 公共定义
+  espressif/audio_common: "^1.0.0"
+
+  ## ESP-ADF I2S Stream - I2S 流处理
+  espressif/i2s_stream: "^1.0.0"
+
+  ## ESP-ADF FATFS Stream - FATFS 文件流
+  espressif/fatfs_stream: "^1.0.0"
+
+  ## ESP-ADF Audio HAL - 音频硬件抽象层
+  espressif/audio_hal: "^1.0.0"
+
+  ## ESP-ADF Audio SAL - 系统抽象层
+  espressif/audio_sal: "^1.0.0"
+
+  ## ESP Audio Codec - 音频编解码器库（包含 MP3 解码）
+  espressif/esp_audio_codec: "^1.0.0"
+
+## 配置覆盖（可选）
+config:
+  CONFIG_ESP32_CAMERA_ENABLED:
+    value: true
+  CONFIG_SCCB_CLK_FREQ:
+    value: 100000
+  CONFIG_HTTPD_MAX_URI_HANDLERS:
+    value: 128
+  CONFIG_HTTPD_WS_SUPPORT:
+    value: true

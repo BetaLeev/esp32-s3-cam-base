@@ -6,7 +6,7 @@
 #include "system.h"
 #include "../config.h"
 #include "../web_module.h"
-#include "../actuators/led.h"
+#include "../device/led/led.h"
 #include "../wifi/wifi.h"
 #include "esp_http_server.h"
 #include "cJSON.h"
@@ -147,7 +147,16 @@ esp_err_t status_web_handler(httpd_req_t *req)
 
     // LED状态
     led_status_t led_status;
+    led_config_t led_config;
     led_get_status(&led_status);
+    led_get_config(&led_config);
+
+    // LED引脚（-1 表示未设置）
+    if (led_config.pin >= 0) {
+        cJSON_AddNumberToObject(data, "led_pin", led_config.pin);
+    } else {
+        cJSON_AddNullToObject(data, "led_pin");
+    }
 
     cJSON_AddBoolToObject(data, "led_enabled", led_status.enabled);
     cJSON_AddNumberToObject(data, "led_current_level", led_status.current_level);
@@ -160,7 +169,11 @@ esp_err_t status_web_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(data, "chip_temp", system_get_chip_temp());
 
     // 脉冲控制状态
-    cJSON_AddNumberToObject(data, "pulse_pin", g_system_status.pulse_pin);
+    if (g_system_status.pulse_pin >= 0) {
+        cJSON_AddNumberToObject(data, "pulse_pin", g_system_status.pulse_pin);
+    } else {
+        cJSON_AddNullToObject(data, "pulse_pin");
+    }
     cJSON_AddBoolToObject(data, "pulse_enabled", g_system_status.pulse_enabled);
     cJSON_AddNumberToObject(data, "pulse_current_intensity", g_system_status.pulse_current_intensity);
     cJSON_AddNumberToObject(data, "pulse_count", g_system_status.pulse_count);

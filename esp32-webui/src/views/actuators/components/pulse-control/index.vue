@@ -85,7 +85,7 @@ const availablePins = [0, 19, 20, 21, 22]
 const actionLoading = ref(false)
 
 const localConfig = reactive({
-  pin: undefined,
+  pin: null,
   mode: 'single',
   intensity: 50,
   frequency: 200,
@@ -96,11 +96,7 @@ const localConfig = reactive({
 watch(() => props.status, (newStatus) => {
   if (newStatus) {
     localConfig.enabled = newStatus.pulse_enabled ?? false
-    if (newStatus.pulse_pin !== undefined) {
-      localConfig.pin = newStatus.pulse_pin
-    } else {
-      localConfig.pin = undefined
-    }
+    localConfig.pin = newStatus.pulse_pin ?? null
   }
 }, { immediate: true })
 

@@ -15,6 +15,7 @@ extern "C" {
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include <string.h>
+#include <math.h>
 
 static const char *TAG = "AUDIO_SIMPLE";
 
@@ -26,19 +27,27 @@ typedef enum {
     CMD_PLAY = 1,
     CMD_STOP,
     CMD_SET_VOLUME,
+    CMD_TONE,
 } simple_cmd_t;
 
 typedef struct {
     simple_cmd_t cmd;
     char path[256];
     uint8_t volume;
+    uint32_t freq;
+    uint32_t duration;
 } simple_message_t;
 
 static QueueHandle_t s_queue = NULL;
 static TaskHandle_t s_task = NULL;
 static bool s_initialized = false;
 static audio_simple_state_t s_state = AUDIO_SIMPLE_STATE_IDLE;
-static audio_simple_info_t s_info = {0};
+static audio_simple_info_t s_info = {
+    .state = AUDIO_SIMPLE_STATE_IDLE,
+    .duration_ms = 0,
+    .position_ms = 0,
+    .current_file = {0}
+};
 static uint8_t s_volume = 80;
 
 // ============================================================================
@@ -72,15 +81,45 @@ static void audio_simple_task(void *arg)
                 }
 
                 case CMD_STOP:
-                    ESP_LOGI(TAG, "停止");
+                    ESP_LOGI(TAG, ">>> CMD_STOP 被处理，调用 audio_stop()");
                     audio_stop();
                     s_state = AUDIO_SIMPLE_STATE_STOPPED;
+                    ESP_LOGI(TAG, ">>> 停止完成");
                     break;
 
                 case CMD_SET_VOLUME:
                     s_volume = msg.volume;
                     audio_set_volume_percent(msg.volume);
                     break;
+
+                case CMD_TONE: {
+                    ESP_LOGI(TAG, "播放测试音调: %luHz %lums", msg.freq, msg.duration);
+                    s_state = AUDIO_SIMPLE_STATE_PLAYING;
+                    
+                    // 生成并播放正弦波
+                    const uint32_t sample_rate = 44100;
+                    const uint32_t num_samples = (sample_rate * msg.duration) / 1000;
+                    int16_t *samples = (int16_t *)malloc(num_samples * 2 * sizeof(int16_t));
+                    if (samples) {
+                        for (uint32_t i = 0; i < num_samples; i++) {
+                            double t = (double)i / sample_rate;
+                            double sine = sin(2.0 * M_PI * msg.freq * t);
+                            // 应用音量
+                            int16_t sample = (int16_t)(sine * 16000 * s_volume / 100);
+                            samples[i * 2] = sample;     // 左声道
+                            samples[i * 2 + 1] = sample; // 右声道
+                        }
+                        // 播放生成的音频
+                        audio_play_wav_data(samples, num_samples * 2 * sizeof(int16_t));
+                        free(samples);
+                    }
+                    
+                    s_state = AUDIO_SIMPLE_STATE_STOPPED;
+                    s_info.duration_ms = msg.duration;
+                    s_info.position_ms = msg.duration;
+                    ESP_LOGI(TAG, "测试音调播放完成");
+                    break;
+                }
             }
         }
     }
@@ -162,8 +201,12 @@ esp_err_t audio_simple_play(const char *file_path)
 void audio_simple_stop(void)
 {
     if (!s_initialized) return;
-    simple_message_t m = {.cmd = CMD_STOP};
-    xQueueSend(s_queue, &m, 0);
+    
+    ESP_LOGI(TAG, ">>> audio_simple_stop() 被调用 - 直接停止");
+    
+    // 直接调用 audio_stop()，不通过队列
+    // 因为播放是同步阻塞的，队列消息无法及时处理
+    audio_stop();
 }
 
 void audio_simple_set_volume(uint8_t volume)
@@ -190,6 +233,17 @@ uint8_t audio_simple_get_progress(void)
 {
     if (!s_initialized || s_info.duration_ms == 0) return 0;
     return (s_info.position_ms * 100) / s_info.duration_ms;
+}
+
+void audio_simple_play_tone(uint32_t freq_hz, uint32_t duration_ms)
+{
+    if (!s_initialized) return;
+    simple_message_t m = {
+        .cmd = CMD_TONE,
+        .freq = freq_hz,
+        .duration = duration_ms
+    };
+    xQueueSend(s_queue, &m, pdMS_TO_TICKS(100));
 }
 
 }  // extern "C"

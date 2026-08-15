@@ -1,6 +1,6 @@
 /**
  * @file pulse.h
- * @brief 脉冲控制模块
+ * @brief 脉冲控制模块接口
  */
 
 #ifndef PULSE_H

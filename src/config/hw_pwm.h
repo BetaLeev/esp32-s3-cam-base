@@ -33,8 +33,8 @@
  * - 180° = 2.5ms = 2500µs = 2500 计数
  */
 #define LEDC_SERVO_MODE       LEDC_LOW_SPEED_MODE
-#define LEDC_SERVO_TIMER      LEDC_TIMER_1
-#define LEDC_SERVO_CHANNEL    LEDC_CHANNEL_1
+#define LEDC_SERVO_TIMER      LEDC_TIMER_2
+#define LEDC_SERVO_CHANNEL    LEDC_CHANNEL_2
 #define LEDC_SERVO_FREQUENCY 50             /**< 50Hz 周期20ms */
 #define LEDC_SERVO_DUTY_RES   LEDC_TIMER_14_BIT   /**< 14位分辨率 0-16383 */
 

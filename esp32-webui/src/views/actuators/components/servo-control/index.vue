@@ -19,29 +19,11 @@
         <div class="angle-circle">
           <svg viewBox="0 0 100 100" class="angle-gauge">
             <!-- 背景圆弧 -->
-            <circle
-              cx="50"
-              cy="50"
-              r="40"
-              fill="none"
-              stroke="#e4e7ed"
-              stroke-width="8"
-              stroke-linecap="round"
-              :stroke-dasharray="backgroundArc"
-              transform="rotate(135 50 50)"
-            />
+            <circle cx="50" cy="50" r="40" fill="none" stroke="#e4e7ed" stroke-width="8" stroke-linecap="round"
+              :stroke-dasharray="backgroundArc" transform="rotate(135 50 50)" />
             <!-- 进度圆弧 -->
-            <circle
-              cx="50"
-              cy="50"
-              r="40"
-              fill="none"
-              stroke="#409eff"
-              stroke-width="8"
-              stroke-linecap="round"
-              :stroke-dasharray="progressArc"
-              transform="rotate(135 50 50)"
-            />
+            <circle cx="50" cy="50" r="40" fill="none" stroke="#409eff" stroke-width="8" stroke-linecap="round"
+              :stroke-dasharray="progressArc" transform="rotate(135 50 50)" />
           </svg>
           <div class="angle-value">
             <span class="value">{{ servoAngle }}</span>
@@ -52,10 +34,12 @@
 
       <!-- 角度滑块 -->
       <div class="slider-section">
-        <el-slider v-model="servoAngle" :min="0" :max="180" :step="5" :show-tooltip="false" @change="handleServoChange" />
+        <el-slider v-model="servoAngle" :min="0" :max="180" :step="10" :show-tooltip="false"
+          @input="isDragging.value = true" @change="handleServoChange" />
         <div class="slider-labels">
           <span>0°</span>
-          <span>90°</span>
+          <span>75°</span>
+          <span>150°</span>
           <span>180°</span>
         </div>
       </div>
@@ -63,10 +47,11 @@
       <!-- 快速设置按钮 -->
       <div class="quick-buttons">
         <el-button size="default" @click="setAngle(0)">0°</el-button>
-        <el-button size="default" @click="setAngle(45)">45°</el-button>
-        <el-button size="default" @click="setAngle(90)">90°</el-button>
-        <el-button size="default" @click="setAngle(135)">135°</el-button>
-        <el-button size="default" @click="setAngle(180)">180°</el-button>
+        <el-button size="default" @click="setAngle(40)">40°</el-button>
+        <el-button size="default" @click="setAngle(75)">75°</el-button>
+        <el-button size="default" @click="setAngle(120)">120°</el-button>
+        <el-button size="default" @click="setAngle(150)">150°</el-button>
+        <el-button size="default" @click="setAngle(150)">180°</el-button>
       </div>
     </div>
   </PageCard>
@@ -87,16 +72,17 @@ const props = defineProps({
 })
 
 const servoAngle = ref(90)
+const isDragging = ref(false)
 
 // SVG圆弧常量
 const CIRCLE_RADIUS = 40
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS // 251.33
 const MAX_ARC_LENGTH = 251.33
 
-// 计算进度圆弧长度（0-180度对应0-270度圆弧）
+// 计算进度圆弧长度（0-150度对应0-270度圆弧）
 const progressArc = computed(() => {
-  const progress = servoAngle.value / 180
-  const arcLength = progress * MAX_ARC_LENGTH * 0.75 // 180度对应270度圆弧
+  const progress = servoAngle.value / 150
+  const arcLength = progress * MAX_ARC_LENGTH * 0.75 // 150度对应270度圆弧
   return `${arcLength} ${MAX_ARC_LENGTH}`
 })
 
@@ -107,17 +93,18 @@ const backgroundArc = computed(() => {
 })
 
 watch(() => props.status.servo_angle, (newVal) => {
-  if (newVal !== undefined) {
+  if (newVal !== undefined && !isDragging.value) {
     servoAngle.value = newVal
   }
 }, { immediate: true })
 
 const setAngle = (angle) => {
   servoAngle.value = angle
-  handleServoChange(angle)
+  controlServo({ angle })
 }
 
 const handleServoChange = async (angle) => {
+  isDragging.value = false
   try {
     await controlServo({ angle })
   } catch (error) {

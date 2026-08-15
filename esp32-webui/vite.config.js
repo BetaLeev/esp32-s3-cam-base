@@ -21,8 +21,8 @@ export default defineConfig({
         target: 'http://192.168.102.158:80',
         changeOrigin: true,
         ws: true,
-        timeout: 120000,         // 请求超时 2 分钟
-        proxyTimeout: 120000,    // 代理超时 2 分钟
+        timeout: 600000,         // 请求超时 10 分钟
+        proxyTimeout: 600000,    // 代理超时 10 分钟
         configure: (proxy) => {
           proxy.on('proxyReqWs', (proxyReq, req, socket) => {
             console.log('[Vite WS Proxy] 代理 WebSocket 请求')

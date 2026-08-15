@@ -85,7 +85,7 @@ const availablePins = [0, 19, 20, 21, 22]
 const actionLoading = ref(false)
 
 const localConfig = reactive({
-  pin: '111',
+  pin: null,
   trigger_mode: 'blink',
   initial_level: 1,
   high_duration: 1,
@@ -98,11 +98,7 @@ const localConfig = reactive({
 watch(() => props.status, (newStatus) => {
   if (newStatus) {
     localConfig.enabled = newStatus.led_enabled ?? false
-    if (newStatus.led_pin !== undefined) {
-      localConfig.pin = newStatus.led_pin
-    } else {
-      localConfig.pin = ''
-    }
+    localConfig.pin = newStatus.led_pin ?? null
   }
 }, { immediate: true })
 

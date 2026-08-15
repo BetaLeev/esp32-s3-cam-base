@@ -1,18 +1,17 @@
 /**
- * @file actuators_web.c
- * @brief 执行器Web API实现 - 简化的 JSON 响应
+ * @file motor_web.c
+ * @brief 电机/水泵 Web API实现
  */
 
-#include "actuators_web.h"
-#include "../config.h"
-#include "../actuators/actuators.h"
-#include "web_module.h"
+#include "motor_web.h"
+#include "motor.h"
+#include "../../web_module.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include <stdlib.h>
 #include <string.h>
 
-static const char *TAG = "ACTUATORS_WEB";
+static const char *TAG = "MOTOR_WEB";
 
 /**
  * @brief 解析URL查询参数
@@ -44,65 +43,35 @@ static esp_err_t parse_query_param(httpd_req_t *req, const char *param_name, int
 /**
  * @brief API: 水泵控制 (GET /api/pump?gear=0-3)
  */
-esp_err_t actuators_web_pump_handler(httpd_req_t *req)
+esp_err_t motor_web_pump_handler(httpd_req_t *req)
 {
     int gear = -1;
     parse_query_param(req, "gear", &gear);
 
     if (gear >= 0 && gear <= 3) {
-        esp_err_t ret = actuators_pump_set_gear((pump_gear_t)gear);
-        pump_gear_t current = actuators_pump_get_gear();
+        esp_err_t ret = motor_pump_set_gear((pump_gear_t)gear);
+        pump_gear_t current = motor_pump_get_gear();
 
         cJSON *data = cJSON_CreateObject();
         cJSON_AddNumberToObject(data, "gear", current);
-        cJSON_AddStringToObject(data, "state", actuators_pump_get_gear_name(current));
+        cJSON_AddStringToObject(data, "state", motor_pump_get_gear_name(current));
 
         return send_success(req, data, ret == ESP_OK ? "水泵控制成功" : "水泵控制失败");
     }
 
     // 无参数时返回当前状态
-    pump_gear_t current = actuators_pump_get_gear();
+    pump_gear_t current = motor_pump_get_gear();
     cJSON *data = cJSON_CreateObject();
     cJSON_AddNumberToObject(data, "gear", current);
-    cJSON_AddStringToObject(data, "state", actuators_pump_get_gear_name(current));
+    cJSON_AddStringToObject(data, "state", motor_pump_get_gear_name(current));
 
     return send_success(req, data, "获取水泵状态成功");
 }
 
 /**
- * @brief API: 舵机控制 (GET /api/servo?angle=0-180)
- */
-esp_err_t actuators_web_servo_handler(httpd_req_t *req)
-{
-    ESP_LOGI(TAG, "舵机请求到达, URI: %s", req->uri);
-
-    int angle = -1;
-
-    if (parse_query_param(req, "angle", &angle) == ESP_OK) {
-        ESP_LOGI(TAG, "解析到角度: %d", angle);
-        if (angle >= 0 && angle <= 180) {
-            esp_err_t ret = actuators_servo_set_angle((uint8_t)angle);
-            cJSON *data = cJSON_CreateObject();
-            cJSON_AddNumberToObject(data, "angle", angle);
-            return send_success(req, data, ret == ESP_OK ? "舵机控制成功" : "舵机控制失败");
-        } else {
-            cJSON *data = cJSON_CreateObject();
-            cJSON_AddNumberToObject(data, "angle", actuators_servo_get_angle());
-            return send_success(req, data, "角度超出范围(0-180)");
-        }
-    }
-
-    ESP_LOGI(TAG, "无angle参数，返回当前角度");
-    // 无参数时返回当前角度
-    cJSON *data = cJSON_CreateObject();
-    cJSON_AddNumberToObject(data, "angle", actuators_servo_get_angle());
-    return send_success(req, data, "获取舵机角度成功");
-}
-
-/**
  * @brief API: 电机控制 (GET /api/motor?cmd=start|stop|speed)
  */
-esp_err_t actuators_web_motor_handler(httpd_req_t *req)
+esp_err_t motor_web_handler(httpd_req_t *req)
 {
     char cmd_buf[16] = {0};
     char query_buf[256];
@@ -120,21 +89,21 @@ esp_err_t actuators_web_motor_handler(httpd_req_t *req)
         int speed = -1;
         parse_query_param(req, "speed", &speed);
         if (speed >= 0 && speed <= 100) {
-            actuators_motor_set_speed((uint8_t)speed);
+            motor_set_speed((uint8_t)speed);
         }
-        ret = actuators_motor_start();
+        ret = motor_start();
     } else if (strcmp(cmd_buf, "stop") == 0) {
-        ret = actuators_motor_stop();
+        ret = motor_stop();
     } else if (strcmp(cmd_buf, "speed") == 0) {
         int speed = -1;
         if (parse_query_param(req, "speed", &speed) == ESP_OK && speed >= 0 && speed <= 100) {
-            ret = actuators_motor_set_speed((uint8_t)speed);
+            ret = motor_set_speed((uint8_t)speed);
         }
     }
 
     cJSON *data = cJSON_CreateObject();
-    cJSON_AddBoolToObject(data, "state", actuators_motor_get_state());
-    cJSON_AddNumberToObject(data, "speed", actuators_motor_get_speed());
+    cJSON_AddBoolToObject(data, "state", motor_get_state());
+    cJSON_AddNumberToObject(data, "speed", motor_get_speed());
 
     return send_success(req, data, ret == ESP_OK ? "电机控制成功" : "电机控制失败");
 }

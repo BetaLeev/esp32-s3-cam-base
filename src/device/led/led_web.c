@@ -5,8 +5,8 @@
 
 #include "led_web.h"
 #include "led.h"
-#include "../config.h"
-#include "web_module.h"
+#include "../../config.h"
+#include "../../web_module.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include "driver/gpio.h"
