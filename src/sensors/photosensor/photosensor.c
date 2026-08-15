@@ -12,8 +12,7 @@
 #include "../adc_manager.h"
 #include <math.h>
 
-static const char *TAG = "PHOTOSENSOR";
-#define LOG_TAG TAG
+#define LOG_TAG "PHOTOSENSOR"
 
 /* ========================================
  * 内部变量

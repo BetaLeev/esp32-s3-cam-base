@@ -53,9 +53,7 @@ static void temp_sensor_task(void *pvParameters)
     while (1) {
         if (s_temp_sensor_ok) {
             float temp = system_get_chip_temp();
-            if (temp >= 0) {
-                ESP_LOGI(TAG, "芯片温度: %.1f°C", temp);
-            } else {
+            if (temp < 0) {
                 ESP_LOGW(TAG, "读取温度失败");
             }
         }

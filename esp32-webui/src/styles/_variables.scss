@@ -1,0 +1,77 @@
+// ========================================
+// 主题颜色
+// ========================================
+$primary-color: #409eff;
+$success-color: #67c23a;
+$warning-color: #e6a23c;
+$danger-color: #f56c6c;
+$info-color: #909399;
+
+// 文字颜色
+$text-primary: #303133;
+$text-regular: #606266;
+$text-secondary: #909399;
+$text-placeholder: #c0c4cc;
+
+// 边框颜色
+$border-color: #dcdfe6;
+$border-color-base: #dcdfe6;
+$border-color-light: #e4e7ed;
+$border-color-lighter: #ebeef5;
+$border-color-extra-light: #f2f6fc;
+
+// 背景颜色
+$bg-color: #f5f7fa;
+$bg-color-page: #f0f2f5;
+$bg-color-white: #ffffff;
+
+// ========================================
+// 圆角
+// ========================================
+$border-radius-small: 4px;
+$border-radius-base: 8px;
+$border-radius-large: 12px;
+
+// ========================================
+// 间距
+// ========================================
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-base: 16px;
+$spacing-lg: 20px;
+$spacing-xl: 24px;
+$spacing-xxl: 32px;
+
+// ========================================
+// 阴影
+// ========================================
+$shadow-base: 0 2px 12px rgba(0, 0, 0, 0.1);
+$shadow-light: 0 2px 6px rgba(0, 0, 0, 0.08);
+$shadow-dark: 0 4px 16px rgba(0, 0, 0, 0.15);
+
+// ========================================
+// 布局
+// ========================================
+$header-height: 70px;
+$footer-height: 80px;
+$page-max-width: 1280px;
+$page-padding: 24px;
+$card-gap: 20px;
+
+// ========================================
+// 字体
+// ========================================
+$font-family-base: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', Arial, sans-serif;
+$font-size-xs: 12px;
+$font-size-sm: 13px;
+$font-size-base: 14px;
+$font-size-md: 16px;
+$font-size-lg: 18px;
+$font-size-xl: 20px;
+$font-size-xxl: 24px;
+
+// GPIO下拉框统一样式
+// ========================================
+$gpio-select-width: 120px;
+$gpio-select-label-width: 60px;

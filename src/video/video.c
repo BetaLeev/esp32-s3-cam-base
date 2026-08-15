@@ -13,8 +13,7 @@
 #include "freertos/task.h"
 #include <string.h>
 
-static const char *TAG = "VIDEO";
-#define LOG_TAG TAG
+#define LOG_TAG "VIDEO"
 
 #define CAM_PIN_PWDN -1
 #define CAM_PIN_RESET -1

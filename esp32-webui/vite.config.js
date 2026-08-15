@@ -5,6 +5,14 @@ import { resolve } from 'path'
 export default defineConfig({
   plugins: [vue()],
   base: './',
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'legacy',  // 使用旧API模式，抑制弃用警告
+        silenceDeprecations: ['legacy-js-api', 'import', 'global-builtin', 'color-functions']
+      }
+    }
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

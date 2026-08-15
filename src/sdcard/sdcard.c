@@ -13,8 +13,7 @@
 #include <sys/time.h>
 #include <time.h>
 
-static const char *TAG = "SDCARD";
-#define LOG_TAG TAG
+#define LOG_TAG "SDCARD"
 
 static bool s_sdcard_mounted = false;
 static sdmmc_card_t *s_card = NULL;
@@ -105,7 +104,8 @@ esp_err_t sdcard_init(void) {
   // 正确计算总容量
   uint64_t card_size = (uint64_t)s_card->csd.capacity * s_card->csd.sector_size;
   SDCARD_LOGI(TAG, "TF卡挂载成功!");
-  SDCARD_LOGI(TAG, "    总容量: %.2f GB", card_size / (1024.0 * 1024.0 * 1024.0));
+  SDCARD_LOGI(TAG, "    总容量: %.2f GB", (double)card_size / (1024.0 * 1024.0 * 1024.0));
+  (void)card_size;  // 防止未使用警告
 
   s_sdcard_mounted = true;
   SDCARD_LOGI(TAG, "========== TF卡初始化完成 ==========");

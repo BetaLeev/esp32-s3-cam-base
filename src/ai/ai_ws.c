@@ -11,7 +11,7 @@
 #include "../system/system.h"
 #include <string.h>
 
-static const char *TAG = "AI_WS";
+#define LOG_TAG "AI_WS"
 
 static httpd_handle_t s_server_handle = NULL;
 static int s_ws_fd = -1;

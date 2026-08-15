@@ -10,6 +10,7 @@
 #include "wifi/wifi_web.h"
 #include "actuators/led_web.h"
 #include "actuators/pulse_web.h"
+#include "actuators/actuators_web.h"
 #include "ai/ai_web.h"
 #include "ai/ai_ws.h"
 #include <stdio.h>
@@ -24,10 +25,11 @@ httpd_handle_t get_httpd_handle(void) {
 
 // 静态文件通配符处理 Handler
 static esp_err_t wildcard_static_handler(httpd_req_t *req) {
-    // 防御机制：API 请求如果未命中路由，明确返回 JSON 格式的 404，不搜寻 SPIFFS
+    // API 请求未匹配任何路由，返回 404
     if (strncmp(req->uri, "/api/", 5) == 0) {
-        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "API Endpoint Not Found");
-        return ESP_FAIL;
+        httpd_resp_set_type(req, "application/json");
+        httpd_resp_send(req, "{\"status\":\"error\",\"code\":404,\"message\":\"Not Found\"}", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
     }
 
     char *filepath = malloc(512);
@@ -38,6 +40,12 @@ static esp_err_t wildcard_static_handler(httpd_req_t *req) {
     if (strcmp(req->uri, "/") == 0) {
         snprintf(filepath, 512, "web/index.html");
     } else {
+        // 限制路径长度，避免截断警告
+        size_t uri_len = strlen(req->uri);
+        if (uri_len > 500) {
+            free(filepath);
+            return ESP_ERR_INVALID_SIZE;
+        }
         snprintf(filepath, 512, "web%s", req->uri);
     }
 
@@ -87,6 +95,36 @@ esp_err_t http_server_init(void) {
 
     pulse_web_register_routes(s_http_server_handle);
     HTTP_LOGI(TAG, "Pulse 路由已注册");
+
+    // 注册执行器 API（水泵 + 舵机 + 电机）
+    {
+        httpd_uri_t pump_uri = {
+            .uri = "/api/pump",
+            .method = HTTP_GET,
+            .handler = actuators_web_pump_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(s_http_server_handle, &pump_uri);
+        HTTP_LOGI(TAG, "水泵路由已注册");
+
+        httpd_uri_t servo_uri = {
+            .uri = "/api/servo",
+            .method = HTTP_GET,
+            .handler = actuators_web_servo_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(s_http_server_handle, &servo_uri);
+        HTTP_LOGI(TAG, "舵机路由已注册");
+
+        httpd_uri_t motor_uri = {
+            .uri = "/api/motor",
+            .method = HTTP_GET,
+            .handler = actuators_web_motor_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(s_http_server_handle, &motor_uri);
+        HTTP_LOGI(TAG, "电机路由已注册");
+    }
 
     ai_web_register_routes(s_http_server_handle);
     HTTP_LOGI(TAG, "AI HTTP 路由已注册");

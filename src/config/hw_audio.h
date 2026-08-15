@@ -3,7 +3,7 @@
  * @brief MAX98357 音频模块 GPIO 引脚配置
  *
  * ESP32-S3 的 I2S 引脚可以映射到多个 GPIO
- * 默认使用 GPIO14/15/16 作为 I2S 引脚
+ * 默认使用 GPIO2/21/47 作为 I2S 引脚
  */
 #ifndef HW_AUDIO_H
 #define HW_AUDIO_H
@@ -12,31 +12,27 @@
 
 /* ========================================
  * MAX98357 I2S 接口引脚配置
- * ⚠️ 注意：已从 GPIO6/7/8/9 移到空闲GPIO，避免与摄像头DVP/SCCB冲突
- *    (摄像头占用: GPIO4=SDA, GPIO5=SCL, GPIO6=VSYNC, GPIO7=HREF,
- *                 GPIO8=D2, GPIO9=D1, GPIO10=D3, GPIO11=D0, GPIO12=D4,
- *                 GPIO13=PCLK, GPIO15=XCLK, GPIO16=D7, GPIO17=D6, GPIO18=D5)
+ * ⚠️ 重新映射到完全空闲的GPIO，避免与所有外设冲突
+ *    摄像头占用: GPIO4=SDA, GPIO5=SCL, GPIO6=VSYNC, GPIO7=HREF,
+ *                GPIO8=D2, GPIO9=D1, GPIO10=D3, GPIO11=D0, GPIO12=D4,
+ *                GPIO13=PCLK, GPIO15=XCLK, GPIO16=D7, GPIO17=D6, GPIO18=D5
+ *    TF卡占用:   GPIO38=CMD, GPIO39=CLK, GPIO40=D0
+ *    电机占用:   GPIO1=PWMA, GPIO2=AIN1, GPIO42=AIN2
+ *    传感器占用: GPIO3=ADC, GPIO45=DHT11
+ *    舵机占用:   GPIO22
+ *    I2C占用:    GPIO41=SCL, GPIO46=SDA
  * ======================================== */
 /**
- * @brief MAX98357 I2S 接口引脚（重定位到空闲GPIO，避免与摄像头冲突）
- * - BCLK: GPIO14 (原GPIO6→VSYNC冲突)
- * - WS(LRC): GPIO20 (原GPIO7→HREF冲突，避免与GPIO3的ADC冲突)
- * - DIN: GPIO19    (原GPIO8→D2冲突)
+ * @brief MAX98357 I2S 接口引脚（使用完全空闲的GPIO）
+ * - BCLK: GPIO2
+ * - WS(LRC): GPIO21
+ * - DIN: GPIO47
+ * ⚠️ GPIO35-37 是 PSRAM 引脚（不可用），GPIO38-40 是 TF 卡引脚（不可用）
  */
-#define GPIO_AUDIO_BCLK       GPIO_NUM_14   /**< 位时钟引脚 - 移至GPIO14避免冲突 */
-#define GPIO_AUDIO_WS         GPIO_NUM_20   /**< 字选择引脚 (LRC) - 移至GPIO20避免ADC冲突 */
-#define GPIO_AUDIO_DIN        GPIO_NUM_19   /**< 串行数据输入引脚 - 移至GPIO19避免冲突 */
-
-/* ========================================
- * MAX98357 控制引脚配置
- * ======================================== */
-/**
- * @brief MAX98357 控制引脚（重定位到空闲GPIO）
- * - GAIN: GPIO21 (原GPIO9→D1冲突)
- * - SD:   GPIO47 (原GPIO33→DHT11冲突，移至GPIO47)
- */
-#define GPIO_AUDIO_GAIN       GPIO_NUM_21   /**< 增益控制引脚 - 移至GPIO21避免冲突 */
-#define GPIO_AUDIO_SD         GPIO_NUM_47   /**< 关闭控制引脚 - 移至GPIO47避免DHT11冲突 */
+#define GPIO_AUDIO_BCLK       GPIO_NUM_2    /**< 位时钟引脚 - 空闲GPIO */
+#define GPIO_AUDIO_WS         GPIO_NUM_21   /**< 字选择引脚 (LRC) - 空闲GPIO */
+#define GPIO_AUDIO_DIN        GPIO_NUM_47   /**< 串行数据输入引脚 - 空闲GPIO */
+#define GPIO_AUDIO_SD         GPIO_NUM_46   /**< SD (Shutdown) 引脚 - 必须拉高才能工作 */
 
 /* ========================================
  * 默认引脚映射
@@ -45,10 +41,10 @@
  * @brief 使用默认引脚时的宏定义
  */
 #define AUDIO_DEFAULT_BCLK    GPIO_AUDIO_BCLK
-#define AUDIO_DEFAULT_WS       GPIO_AUDIO_WS
+#define AUDIO_DEFAULT_WS      GPIO_AUDIO_WS
 #define AUDIO_DEFAULT_DIN     GPIO_AUDIO_DIN
-#define AUDIO_DEFAULT_GAIN    GPIO_AUDIO_GAIN
-#define AUDIO_DEFAULT_SD      GPIO_AUDIO_SD
+#define AUDIO_DEFAULT_GAIN    GPIO_NUM_45   /**< 增益控制引脚 - GPIO45 */
+#define AUDIO_DEFAULT_SD      GPIO_AUDIO_SD /**< SD (Shutdown) 引脚 */
 
 /* ========================================
  * I2S 配置参数

@@ -28,58 +28,53 @@
 
 /* ========================================
  * 各模块日志级别配置
- * ======================================== *
- * 将不需要的模块设为 LOG_LEVEL_NONE 即可禁用其日志
- *
- * 调试指南：
- *   - 调试TF卡: 设置 LOG_LEVEL_SDCARD = LOG_LEVEL_DEBUG
- *   - 调试传感器: 设置 LOG_LEVEL_SENSORS = LOG_LEVEL_INFO
- */
+ * 调试完成后再设置回 LOG_LEVEL_NONE 或 LOG_LEVEL_INFO
+ * ======================================== */
 
-/** TF卡模块日志级别 */
-#define LOG_LEVEL_SDCARD    LOG_LEVEL_INFO
+/** TF卡模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_SDCARD    LOG_LEVEL_NONE
 
-/** 传感器模块日志级别 */
-#define LOG_LEVEL_SENSORS   LOG_LEVEL_INFO
+/** 传感器模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_SENSORS   LOG_LEVEL_NONE
 
-/** 执行器模块日志级别 */
-#define LOG_LEVEL_ACTUATORS LOG_LEVEL_INFO
+/** 执行器模块日志级别 - 调试时开启 */
+#define LOG_LEVEL_ACTUATORS LOG_LEVEL_DEBUG
 
-/** 音频模块日志级别 */
-#define LOG_LEVEL_AUDIO     LOG_LEVEL_INFO
+/** 音频模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_AUDIO     LOG_LEVEL_DEBUG
 
-/** 视频模块日志级别 - 调试中 */
-#define LOG_LEVEL_VIDEO     LOG_LEVEL_DEBUG
+/** 视频模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_VIDEO     LOG_LEVEL_NONE
 
-/** 视频WebSocket模块日志级别 */
-#define LOG_LEVEL_VIDEO_WS  LOG_LEVEL_DEBUG
+/** 视频WebSocket模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_VIDEO_WS  LOG_LEVEL_NONE
 
-/** WiFi模块日志级别 */
-#define LOG_LEVEL_WIFI      LOG_LEVEL_DEBUG
+/** WiFi模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_WIFI      LOG_LEVEL_NONE
 
-/** HTTP服务器日志级别 - 调试中 */
+/** HTTP服务器模块日志级别 - 调试时开启 */
 #define LOG_LEVEL_HTTP      LOG_LEVEL_DEBUG
 
-/** Web模块日志级别 */
-#define LOG_LEVEL_WEB       LOG_LEVEL_INFO
+/** Web模块日志级别 - 调试时开启 */
+#define LOG_LEVEL_WEB       LOG_LEVEL_DEBUG
 
-/** 主模块日志级别 - 调试中 */
-#define LOG_LEVEL_MAIN      LOG_LEVEL_DEBUG
+/** 主模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_MAIN      LOG_LEVEL_INFO
 
-/** DNS模块日志级别 */
-#define LOG_LEVEL_DNS       LOG_LEVEL_INFO
+/** DNS模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_DNS       LOG_LEVEL_NONE
 
-/** SPIFFS模块日志级别 */
-#define LOG_LEVEL_SPIFFS    LOG_LEVEL_INFO
+/** SPIFFS模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_SPIFFS    LOG_LEVEL_NONE
 
-/** 脉冲控制模块日志级别 */
-#define LOG_LEVEL_PULSE     LOG_LEVEL_INFO
+/** 脉冲控制模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_PULSE     LOG_LEVEL_NONE
 
-/** AI语音模块日志级别 */
-#define LOG_LEVEL_AI        LOG_LEVEL_INFO
+/** AI语音模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_AI        LOG_LEVEL_NONE
 
-/** AI WebSocket模块日志级别 */
-#define LOG_LEVEL_AI_WS     LOG_LEVEL_INFO
+/** AI WebSocket模块日志级别 - 默认关闭，调试时开启 */
+#define LOG_LEVEL_AI_WS     LOG_LEVEL_NONE
 
 /* ========================================
  * 日志宏定义 - 根据级别自动启用/禁用

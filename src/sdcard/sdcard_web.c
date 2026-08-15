@@ -18,7 +18,9 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h> // rmdir and unlink declarations
-static const char *TAG = "SDCARD_WEB";
+
+#define LOG_TAG "SDCARD_WEB"
+
 static esp_err_t sdcard_web_options_handler(httpd_req_t *req) {
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET, POST, OPTIONS");

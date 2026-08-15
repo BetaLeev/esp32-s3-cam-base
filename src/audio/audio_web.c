@@ -9,6 +9,7 @@
 #include "audio.h"
 #include "audio_json.h"
 #include "../http_server.h"
+#include "../utils/path_utils.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include <string.h>
@@ -24,21 +25,6 @@ static const char *TAG = "AUDIO_WEB";
 /* ========================================
  * 辅助函数
  * ======================================== */
-
-/**
- * @brief 发送JSON响应
- */
-static esp_err_t send_json_response(httpd_req_t *req, const char *json)
-{
-    if (json == NULL) {
-        httpd_resp_send_500(req);
-        return ESP_FAIL;
-    }
-
-    httpd_resp_set_type(req, "application/json");
-    esp_err_t ret = httpd_resp_send(req, json, strlen(json));
-    return ret;
-}
 
 /**
  * @brief 发送错误响应
@@ -124,17 +110,21 @@ esp_err_t audio_web_api_get_status(httpd_req_t *req)
                   (gain == AUDIO_GAIN_6DB) ? 6 :
                   (gain == AUDIO_GAIN_9DB) ? 9 : 12;
 
+    uint8_t volume = audio_get_volume_percent();
+
     int len = snprintf(json_str, AUDIO_WEB_JSON_SIZE,
         "{"
         "\"initialized\": %s,"
         "\"state\": \"%s\","
         "\"gain\": %d,"
-        "\"gain_db\": %d"
+        "\"gain_db\": %d,"
+        "\"volume\": %d"
         "}",
         audio_is_initialized() ? "true" : "false",
         state_str,
         gain,
-        gain_db
+        gain_db,
+        volume
     );
 
     esp_err_t ret = httpd_resp_set_type(req, "application/json");
@@ -173,6 +163,16 @@ esp_err_t audio_web_api_play(httpd_req_t *req)
     memcpy(file_path, result.str_val, result.str_len);
     file_path[result.str_len] = '\0';
 
+    /* URL 解码（处理中文和特殊字符） */
+    char decoded_path[512];
+    path_url_decode(file_path, decoded_path, sizeof(decoded_path));
+    free(file_path);
+    file_path = (char*)malloc(strlen(decoded_path) + 1);
+    if (file_path == NULL) {
+        return send_error_response(req, "Memory allocation failed");
+    }
+    strcpy(file_path, decoded_path);
+
     ESP_LOGI(TAG, "播放请求: %s", file_path);
     free(body);
 
@@ -184,15 +184,21 @@ esp_err_t audio_web_api_play(httpd_req_t *req)
         return ESP_ERR_NO_MEM;
     }
 
-    /* 执行播放 */
-    int32_t duration = audio_play_wav(file_path);
+    /* 执行播放（自动检测格式） */
+    int32_t duration = audio_play_file(file_path);
     free(file_path);
 
     int len;
-    if (duration >= 0) {
+    if (duration > 0) {
+        /* duration > 0 表示成功播放，返回时长 */
         len = snprintf(json_str, AUDIO_WEB_JSON_SIZE,
             "{\"success\": true, \"duration_ms\": %d}", (int)duration);
+    } else if (duration == 0) {
+        /* duration == 0 表示格式不支持或其他情况 */
+        len = snprintf(json_str, AUDIO_WEB_JSON_SIZE,
+            "{\"success\": false, \"error\": \"格式不支持或播放失败\"}");
     } else {
+        /* duration < 0 表示错误 */
         len = snprintf(json_str, AUDIO_WEB_JSON_SIZE,
             "{\"success\": false, \"error\": \"Playback failed\"}");
     }
@@ -431,7 +437,7 @@ esp_err_t audio_web_api_set_volume(httpd_req_t *req)
 
     free(body);
 
-    esp_err_t ret = audio_set_volume((uint8_t)volume);
+    esp_err_t ret = audio_set_volume_percent((uint8_t)volume);
 
     /* 使用malloc分配响应缓冲区 */
     char *json_str = (char*)malloc(AUDIO_WEB_JSON_SIZE);

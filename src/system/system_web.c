@@ -99,11 +99,11 @@ static void format_uptime(char *buf, size_t len, uint32_t seconds)
     uint32_t secs = seconds % 60;
 
     if (hours > 0) {
-        snprintf(buf, len, "%d小时%d分%d秒", hours, minutes, secs);
+        snprintf(buf, len, "%lu小时%lu分%lu秒", (unsigned long)hours, (unsigned long)minutes, (unsigned long)secs);
     } else if (minutes > 0) {
-        snprintf(buf, len, "%d分%d秒", minutes, secs);
+        snprintf(buf, len, "%lu分%lu秒", (unsigned long)minutes, (unsigned long)secs);
     } else {
-        snprintf(buf, len, "%d秒", secs);
+        snprintf(buf, len, "%lu秒", (unsigned long)secs);
     }
 }
 
@@ -147,11 +147,8 @@ esp_err_t status_web_handler(httpd_req_t *req)
 
     // LED状态
     led_status_t led_status;
-    led_config_t led_config;
     led_get_status(&led_status);
-    led_get_config(&led_config);
 
-    cJSON_AddNumberToObject(data, "led_pin", led_config.pin);
     cJSON_AddBoolToObject(data, "led_enabled", led_status.enabled);
     cJSON_AddNumberToObject(data, "led_current_level", led_status.current_level);
     cJSON_AddNumberToObject(data, "led_executed_count", led_status.executed_count);

@@ -315,6 +315,8 @@ const statusText = computed(() => {
       return '连接中...'
     case 'error':
       return '连接失败'
+    case 'offline':
+      return '离线（后端未连接）'
     default:
       return '离线'
   }
@@ -329,7 +331,10 @@ const canRecord = computed(() => {
 // ========================================
 function handleTestModeChange(enabled) {
   aiVoiceService.setTestMode(enabled)
-  aiVoiceService.reconnect()
+
+  // 重新启用自动重连（用于连接真实后端）
+  aiVoiceService.autoReconnect = true
+  aiVoiceService.reconnectAttempts = 0
 
   if (enabled) {
     ElMessage.success('已开启测试模式，将模拟后端响应')

@@ -169,14 +169,12 @@ void app_main(void) {
         return;
     }
 
-    /* [禁用] 执行器模块 */
-    /*
+    /* 初始化执行器模块（水泵 + 舵机） */
     ret = actuators_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "执行器模块初始化失败: %s", esp_err_to_name(ret));
-        return;
+        // 不阻塞，继续运行
     }
-    */
 
     /* 初始化LED模块 */
     ret = led_init();
@@ -188,6 +186,15 @@ void app_main(void) {
     ret = pulse_init();
     if (ret != ESP_OK) {
         MAIN_LOGW(TAG, "脉冲控制模块初始化失败: %s", esp_err_to_name(ret));
+    }
+
+    /* 初始化音频模块 (MAX98357) */
+    ret = audio_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGW(TAG, "音频模块初始化失败: %s", esp_err_to_name(ret));
+    } else {
+        MAIN_LOGI(TAG, "音频模块初始化成功");
+        MAIN_LOGI(TAG, "提示: 使用 POST /api/audio/test 播放测试音调");
     }
 
     /* 传感器模块初始化 */
@@ -234,6 +241,12 @@ void app_main(void) {
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "HTTP服务器启动失败: %s", esp_err_to_name(ret));
         return;
+    }
+
+    /* 7. 注册所有模块的 Web API 路由（HTTP服务器初始化后才能注册） */
+    ret = audio_web_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGW(TAG, "音频Web接口注册失败: %s", esp_err_to_name(ret));
     }
 
     /* 7. 初始化系统管理模块 */

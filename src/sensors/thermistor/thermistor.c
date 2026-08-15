@@ -12,8 +12,7 @@
 #include "../adc_manager.h"
 #include <math.h>
 
-static const char *TAG = "THERMISTOR";
-#define LOG_TAG TAG
+#define LOG_TAG "THERMISTOR"
 
 /* ========================================
  * 内部变量

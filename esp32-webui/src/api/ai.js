@@ -90,6 +90,8 @@ class AiVoiceService {
     this.onError = null             // 错误回调
     this.audioChunks = []           // 接收的音频数据
     this.testMode = false           // 本地测试模式
+    this.autoReconnect = true       // 自动重连开关
+    this.connectionStatus = 'disconnected' // 当前连接状态
 
     // TTS 配置
     this.ttsEnabled = true          // TTS 开关
@@ -238,17 +240,23 @@ class AiVoiceService {
     }
 
     this.ws.onerror = (err) => {
-      console.error('[AiVoice] WebSocket 错误:', err)
-      this.updateStatus('error')
-      if (this.onError) {
-        this.onError('连接失败')
-      }
+      console.warn('[AiVoice] WebSocket 连接失败，将切换到离线模式')
+      // 立即禁止重连，避免 onclose 再次触发重连
+      this.autoReconnect = false
+      this.updateStatus('offline')
     }
 
-    this.ws.onclose = () => {
-      console.log('[AiVoice] WebSocket 已关闭')
-      this.updateStatus('disconnected')
-      this.attemptReconnect()
+    this.ws.onclose = (event) => {
+      console.log('[AiVoice] WebSocket 已关闭，code:', event.code)
+      // 如果状态不是 offline（由 onerror 设置的），则更新状态
+      if (this.connectionStatus !== 'offline') {
+        this.updateStatus('disconnected')
+      }
+
+      // 只有在允许重连时才尝试重连
+      if (this.autoReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.attemptReconnect()
+      }
     }
   }
 
@@ -446,13 +454,22 @@ class AiVoiceService {
    * 尝试重连
    */
   attemptReconnect() {
+    // 如果已禁止重连，直接退出
+    if (!this.autoReconnect) {
+      console.log('[AiVoice] 自动重连已禁用')
+      this.updateStatus('offline')
+      return
+    }
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('[AiVoice] 达到最大重连次数')
+      console.log('[AiVoice] 达到最大重连次数，切换到离线模式')
+      this.autoReconnect = false // 禁止后续重连
+      this.updateStatus('offline')
       return
     }
 
     this.reconnectAttempts++
-    console.log(`[AiVoice] ${this.reconnectDelay}ms 后尝试重连...`)
+    console.log(`[AiVoice] ${this.reconnectDelay}ms 后尝试重连 (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`)
 
     setTimeout(() => {
       this.connect()
@@ -463,6 +480,7 @@ class AiVoiceService {
    * 更新连接状态
    */
   updateStatus(status) {
+    this.connectionStatus = status
     if (this.onStatusChange) {
       this.onStatusChange(status)
     }

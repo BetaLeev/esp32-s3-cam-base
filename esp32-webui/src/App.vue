@@ -2,12 +2,22 @@
   <div class="app-container">
     <el-container>
       <el-header>
-        <h1>{{ title }}</h1>
-        <el-tag type="info" v-if="envMode === 'development'">开发模式</el-tag>
+        <div class="header-content">
+          <div class="header-left">
+            <h1>{{ title }}</h1>
+          </div>
+          <div class="header-right">
+            <el-tag type="info" v-if="envMode === 'development'" size="small">开发模式</el-tag>
+          </div>
+        </div>
       </el-header>
-      <el-main>
-        <router-view />
+
+      <el-main class="main-container">
+        <div class="page-container">
+          <router-view />
+        </div>
       </el-main>
+
       <el-footer>
         <el-menu
           mode="horizontal"
@@ -17,36 +27,36 @@
         >
           <el-menu-item index="/actuators">
             <el-icon><Monitor /></el-icon>
-            设备控制
+            <span>设备控制</span>
           </el-menu-item>
           <el-menu-item index="/sensors">
             <el-icon><DataAnalysis /></el-icon>
-            环境监测
+            <span>环境监测</span>
           </el-menu-item>
           <el-menu-item index="/video">
             <el-icon><VideoCamera /></el-icon>
-            视频监控
+            <span>视频监控</span>
           </el-menu-item>
           <el-menu-item index="/files">
             <el-icon><Folder /></el-icon>
-            文件管理
+            <span>文件管理</span>
           </el-menu-item>
           <el-menu-item index="/wifi">
             <el-icon><Connection /></el-icon>
-            网络管理
+            <span>网络管理</span>
           </el-menu-item>
           <el-menu-item index="/board">
             <el-icon><Cpu /></el-icon>
-            板子
+            <span>板子</span>
           </el-menu-item>
           <el-menu-item index="/ai">
             <el-icon><ChatDotRound /></el-icon>
-            AI 助手
+            <span>AI 助手</span>
           </el-menu-item>
         </el-menu>
-        <el-text type="info" size="small" class="footer-text">
+        <div class="footer-text">
           ESP32 Web UI | API: {{ apiUrl }}
-        </el-text>
+        </div>
       </el-footer>
     </el-container>
   </div>
@@ -55,7 +65,15 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Monitor, DataAnalysis, VideoCamera, Folder, Connection, Cpu, ChatDotRound } from '@element-plus/icons-vue'
+import {
+  Monitor,
+  DataAnalysis,
+  VideoCamera,
+  Folder,
+  Connection,
+  Cpu,
+  ChatDotRound
+} from '@element-plus/icons-vue'
 
 const route = useRoute()
 const title = import.meta.env.VITE_APP_TITLE || 'ESP32 控制面板'
@@ -64,55 +82,61 @@ const apiUrl = import.meta.env.VITE_API_BASE_URL || '相对路径 (生产)'
 const currentRoute = computed(() => route.path)
 </script>
 
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', Arial, sans-serif;
-}
+<style lang="scss">
+@import '@/styles/main';
 
 .app-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  padding: $spacing-lg;
 }
 
 .el-container {
-  max-width: 1100px;
+  max-width: $page-max-width;
   margin: 0 auto;
 }
 
 .el-header {
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px 12px 0 0;
-  padding: 20px 30px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border-radius: $border-radius-large $border-radius-large 0 0;
+  padding: 0 $page-padding;
+  box-shadow: $shadow-base;
 }
 
-.el-header h1 {
-  font-size: 24px;
-  color: #303133;
+.header-content {
+  @include flex-between;
+  height: $header-height;
+}
+
+.header-left h1 {
+  font-size: $font-size-xxl;
+  color: $text-primary;
   margin: 0;
+}
+
+.header-right {
+  @include flex-center;
 }
 
 .el-main {
   background: rgba(255, 255, 255, 0.9);
-  padding: 30px;
-  min-height: 500px;
+  padding: 0;
+}
+
+.main-container {
+  padding: $spacing-lg 0;
+}
+
+.page-container {
+  padding: 0 $page-padding;
+  max-width: 100%;
 }
 
 .el-footer {
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 0 0 12px 12px;
-  padding: 0 30px 15px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 0 0 $border-radius-large $border-radius-large;
+  padding: 0 $page-padding $spacing-base;
+  box-shadow: $shadow-base;
 }
 
 .nav-menu {
@@ -121,8 +145,9 @@ body {
 }
 
 .footer-text {
-  display: block;
   text-align: center;
-  margin-top: 10px;
+  color: $text-secondary;
+  font-size: $font-size-sm;
+  margin-top: $spacing-sm;
 }
 </style>

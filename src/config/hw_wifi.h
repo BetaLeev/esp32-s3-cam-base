@@ -10,7 +10,7 @@
 /* ========================================
  * AP 模式配置 (热点)
  * ======================================== */
-#define WIFI_AP_SSID           "myEsp"
+#define WIFI_AP_SSID           "myEsp32S3"
 #define WIFI_AP_PASSWORD       "88888888"
 #define WIFI_AP_CHANNEL        1
 #define WIFI_AP_MAX_CONNECTIONS 10
@@ -18,8 +18,8 @@
 /* AP 静态 IP 配置 */
 #define WIFI_AP_IP_ADDR_1      192
 #define WIFI_AP_IP_ADDR_2      168
-#define WIFI_AP_IP_ADDR_3      102
-#define WIFI_AP_IP_ADDR_4      8
+#define WIFI_AP_IP_ADDR_3      4
+#define WIFI_AP_IP_ADDR_4      1
 
 #define WIFI_AP_NETMASK_1      255
 #define WIFI_AP_NETMASK_2      255
@@ -28,7 +28,7 @@
 
 #define WIFI_AP_GW_1           192
 #define WIFI_AP_GW_2           168
-#define WIFI_AP_GW_3           102
+#define WIFI_AP_GW_3           4
 #define WIFI_AP_GW_4           1
 
 /* ========================================

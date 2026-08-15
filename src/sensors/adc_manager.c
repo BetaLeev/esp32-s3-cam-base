@@ -9,8 +9,7 @@
 #include "adc_manager.h"
 #include "../config.h"
 
-static const char *TAG = "ADC_MANAGER";
-#define LOG_TAG TAG
+#define LOG_TAG "ADC_MANAGER"
 
 /* 单例句柄 */
 static adc_oneshot_unit_handle_t s_adc_handle = NULL;

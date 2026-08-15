@@ -5,14 +5,13 @@
 
 #include "web_module.h"
 #include "esp_log.h"
-#include <string.h>
+#include <stdio.h>
 
 static const char *TAG = "WEB_MODULE";
 
-/* ========================================
- * JSON 响应封装函数
- * ======================================== */
-
+/**
+ * @brief 发送 JSON 响应
+ */
 esp_err_t send_json_response(httpd_req_t *req,
                               response_status_t status,
                               cJSON *data,
@@ -22,66 +21,39 @@ esp_err_t send_json_response(httpd_req_t *req,
     cJSON *response = cJSON_CreateObject();
     if (!response) {
         ESP_LOGE(TAG, "创建响应 JSON 失败");
-        return ESP_FAIL;
+        return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Internal Error");
     }
 
-    // 添加状态字段
-    const char *status_str;
-    switch (status) {
-        case RESP_SUCCESS:
-            status_str = "success";
-            break;
-        case RESP_WARNING:
-            status_str = "warning";
-            break;
-        case RESP_ERROR:
-        default:
-            status_str = "error";
-            break;
-    }
+    // 状态字段
+    const char *status_str = "error";
+    if (status == RESP_SUCCESS) status_str = "success";
+    else if (status == RESP_WARNING) status_str = "warning";
+    
     cJSON_AddStringToObject(response, "status", status_str);
-
-    // 添加 HTTP 状态码
     cJSON_AddNumberToObject(response, "code", http_code);
+    cJSON_AddStringToObject(response, "message", message ? message : "");
 
-    // 添加消息
-    if (message) {
-        cJSON_AddStringToObject(response, "message", message);
-    } else {
-        cJSON_AddStringToObject(response, "message", "");
-    }
-
-    // 添加数据
+    // 数据字段
     if (data) {
         cJSON_AddItemToObject(response, "data", data);
     } else {
-        cJSON_AddItemToObject(response, "data", cJSON_CreateNull());
+        cJSON_AddNullToObject(response, "data");
     }
 
-    // 序列化为字符串
+    // 序列化
     char *json_str = cJSON_Print(response);
+    cJSON_Delete(response);
+
     if (!json_str) {
         ESP_LOGE(TAG, "序列化 JSON 失败");
-        cJSON_Delete(response);
-        return ESP_FAIL;
+        return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Internal Error");
     }
-
-    // 设置 HTTP 状态码
-    httpd_resp_set_status(req, http_code == HTTP_OK ? "200 OK" :
-                           http_code == HTTP_CREATED ? "201 Created" :
-                           http_code == HTTP_BAD_REQUEST ? "400 Bad Request" :
-                           http_code == HTTP_NOT_FOUND ? "404 Not Found" :
-                           http_code == HTTP_SERVICE_UNAVAILABLE ? "503 Service Unavailable" :
-                           "500 Internal Server Error");
 
     // 发送响应
     httpd_resp_set_type(req, "application/json");
     esp_err_t ret = httpd_resp_send(req, json_str, strlen(json_str));
 
-    // 释放内存
     cJSON_free(json_str);
-    cJSON_Delete(response);
-
     return ret;
 }
 
@@ -128,7 +100,7 @@ void json_add_bool(cJSON *obj, const char *key, bool value)
 
 void json_add_string(cJSON *obj, const char *key, const char *value)
 {
-    if (obj && key && value) {
+    if (obj && value) {
         cJSON_AddStringToObject(obj, key, value);
     }
 }
@@ -159,7 +131,6 @@ cJSON *parse_request_json(httpd_req_t *req)
         return NULL;
     }
 
-    // 读取请求体
     char buf[1024];
     int ret = httpd_req_recv(req, buf, sizeof(buf) - 1);
     if (ret <= 0) {
@@ -172,10 +143,9 @@ cJSON *parse_request_json(httpd_req_t *req)
     }
     buf[ret] = '\0';
 
-    // 解析 JSON
     cJSON *json = cJSON_Parse(buf);
     if (!json) {
-        ESP_LOGW(TAG, "解析 JSON 失败: %s", cJSON_GetErrorPtr());
+        ESP_LOGW(TAG, "解析 JSON 失败");
         return NULL;
     }
 

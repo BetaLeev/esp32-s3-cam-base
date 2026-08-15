@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const char *TAG = "VIDEO_WEB";
+#define TAG "VIDEO_WEB"
 
 #define BOUNDARY "esp32s3_frame"
 #define FRAME_INTERVAL_US 80000       // 正常帧间隔 80ms (约12.5fps)
@@ -100,16 +100,16 @@ void video_web_register_routes(httpd_handle_t server) {
          .handler = video_web_stop_stream_handler}};
 
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
-        esp_err_t ret = httpd_register_uri_handler(server, &routes[i]);
-        const char *method = (routes[i].method == HTTP_GET)    ? "GET"
+        esp_err_t ret __attribute__((unused)) = httpd_register_uri_handler(server, &routes[i]);
+        const char *method __attribute__((unused)) = (routes[i].method == HTTP_GET)    ? "GET"
                              : (routes[i].method == HTTP_POST) ? "POST"
                                                                : "OPTIONS";
-        VIDEO_LOGI(TAG, "注册路由[%d]: %s %s -> %s", i, method, routes[i].uri,
+        VIDEO_LOGI(TAG, "注册路由[%d]: %s %s -> %s", (int)i, method, routes[i].uri,
                    ret == ESP_OK ? "OK" : "FAIL");
     }
 
     // 注册 WebSocket 路由
-    esp_err_t ws_ret = video_ws_register(server);
+    esp_err_t ws_ret __attribute__((unused)) = video_ws_register(server);
     VIDEO_LOGI(TAG, "WebSocket 路由注册: %s", ws_ret == ESP_OK ? "OK" : "FAIL");
 
     VIDEO_LOGI(TAG, "视频模块路由注册完成");

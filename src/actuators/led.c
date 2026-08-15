@@ -16,9 +16,9 @@
 
 static const char *TAG = "LED";
 
-// LED配置和状态
+// LED配置和状态 - 使用GPIO0（strapping引脚，启动后可用，避免与电机GPIO2冲突）
 static led_config_t s_led_config = {
-    .pin = GPIO_NUM_2,
+    .pin = GPIO_NUM_0,
     .mode = LED_MODE_BLINK,
     .initial_level = 1,
     .high_duration = 1.0f,

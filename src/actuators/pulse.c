@@ -18,8 +18,7 @@
 #include "freertos/semphr.h"
 #include <string.h>
 
-static const char *TAG = "PULSE";
-#define LOG_TAG TAG
+#define LOG_TAG "PULSE"
 
 /* ========================================
  * LEDC 通道定义 - 使用独立通道避免冲突

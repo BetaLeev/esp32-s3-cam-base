@@ -11,8 +11,7 @@
 #include "esp_adc/adc_oneshot.h"
 #include "../adc_manager.h"
 
-static const char *TAG = "SOILHUMIDITY";
-#define LOG_TAG TAG
+#define LOG_TAG "SOILHUMIDITY"
 
 /* ========================================
  * 内部变量

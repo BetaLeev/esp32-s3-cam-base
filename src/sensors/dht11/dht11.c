@@ -23,8 +23,7 @@
 #include "freertos/semphr.h"
 #include "rom/ets_sys.h"
 
-static const char *TAG = "DHT11";
-#define LOG_TAG TAG
+#define LOG_TAG "DHT11"
 
 /* ========================================
  * 内部变量

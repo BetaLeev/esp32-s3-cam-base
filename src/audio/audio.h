@@ -243,4 +243,34 @@ esp_err_t audio_disable_output(void);
  */
 esp_err_t audio_set_volume(uint8_t volume);
 
+/**
+ * @brief 获取软件音量百分比
+ * @return 音量值 0-100
+ */
+uint8_t audio_get_volume_percent(void);
+
+/**
+ * @brief 设置软件音量百分比（真正调节音量大小）
+ * @param volume 音量 0-100
+ */
+esp_err_t audio_set_volume_percent(uint8_t volume);
+
+/* ========================================
+ * MP3 播放接口
+ * ======================================== */
+
+/**
+ * @brief 播放音频文件（自动检测格式，支持 WAV 和 MP3）
+ * @param file_path 文件路径（支持SPIFFS和SD卡路径）
+ * @return 播放持续时间(毫秒)，错误时返回-1
+ */
+int32_t audio_play_file(const char *file_path);
+
+/**
+ * @brief 播放 MP3 文件
+ * @param file_path MP3 文件路径
+ * @return 播放持续时间(毫秒)，错误时返回-1
+ */
+int32_t audio_play_mp3(const char *file_path);
+
 #endif /* AUDIO_H */

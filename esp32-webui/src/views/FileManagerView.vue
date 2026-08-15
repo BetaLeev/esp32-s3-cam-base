@@ -1,20 +1,14 @@
 <template>
   <div class="file-manager">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <span>文件管理器</span>
-          <div class="header-actions">
-            <el-button type="primary" size="small" @click="triggerUpload">
-              <el-icon><Upload /></el-icon> 上传
-            </el-button>
-            <el-button size="small" @click="showMkdirDialog">
-              <el-icon><FolderAdd /></el-icon> 新建
-            </el-button>
-            <el-button size="small" @click="fetchData">
-              <el-icon><Refresh /></el-icon>
-            </el-button>
-          </div>
+    <PageCard title="文件管理器" icon="Folder" :refreshable="true" :loading="loading" @refresh="fetchData">
+      <template #header-extra>
+        <div class="header-actions">
+          <el-button type="primary" size="small" @click="triggerUpload">
+            <el-icon><Upload /></el-icon> 上传
+          </el-button>
+          <el-button size="small" @click="showMkdirDialog">
+            <el-icon><FolderAdd /></el-icon> 新建
+          </el-button>
         </div>
       </template>
 
@@ -76,6 +70,9 @@
                   <el-dropdown-item v-if="!file.is_dir && isMediaFile(file)" @click="openPreview(file)">
                     <el-icon><View /></el-icon> 预览
                   </el-dropdown-item>
+                  <el-dropdown-item v-if="!file.is_dir && isAudioFile(file)" @click="playOnEsp32(file)">
+                    <el-icon><VideoPlay /></el-icon> ESP32播放
+                  </el-dropdown-item>
                   <el-dropdown-item v-if="!file.is_dir" @click="downloadFile(file)">
                     <el-icon><Download /></el-icon> 下载
                   </el-dropdown-item>
@@ -90,11 +87,10 @@
 
         <!-- 空状态 -->
         <div v-if="fileList.length === 0 && !loading" class="empty-state">
-          <el-icon class="empty-icon"><Folder /></el-icon>
-          <div>目录为空</div>
+          <EmptyState type="no-data" text="目录为空" />
         </div>
       </div>
-    </el-card>
+    </PageCard>
 
     <input type="file" ref="fileInputRef" style="display: none" @change="handleFileSelect" />
 
@@ -112,8 +108,10 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Upload, FolderAdd, Refresh, Folder, FolderOpened, View, Download, Delete, MoreFilled } from '@element-plus/icons-vue'
+import { Upload, FolderAdd, Refresh, Folder, FolderOpened, View, Download, Delete, MoreFilled, VideoPlay } from '@element-plus/icons-vue'
+import { PageCard, EmptyState } from '@/components/common'
 import { getStorageInfo, getFileList, deleteFile, createDir, getFileUrl, uploadFile } from '@/api/esp32'
+import { playAudioTest, stopAudio, setAudioVolume, playAudioFile } from '@/api/esp32'
 
 const route = useRoute()
 const router = useRouter()
@@ -167,6 +165,12 @@ const isMediaFile = (file) => {
   return imageExts.includes(ext) || audioExts.includes(ext) || videoExts.includes(ext)
 }
 
+const isAudioFile = (file) => {
+  if (file.is_dir) return false
+  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  return audioExts.includes(ext)
+}
+
 const getFileType = (filename) => {
   const ext = filename.split('.').pop()?.toLowerCase() || ''
   if (imageExts.includes(ext)) return 'image'
@@ -188,7 +192,6 @@ const fetchStorageInfo = async () => {
   try {
     const res = await getStorageInfo()
     const data = res.data
-    // 兼容统一响应格式 - data.data是内部数据，data是包装后的响应
     storageInfo.value = data.data || data
   } catch (error) {
     console.error('加载存储信息失败:', error)
@@ -201,7 +204,6 @@ const fetchFiles = async () => {
   try {
     const res = await getFileList(currentPath.value)
     const data = res.data
-    // 统一响应格式：data.data包含实际数据
     const fileData = data.data || data
     if (data.status === 'error') {
       ElMessage.error(data.message || '加载失败')
@@ -225,7 +227,6 @@ const fetchData = () => {
   fetchFiles()
 }
 
-// 监听路由变化，刷新文件列表
 watch(() => route.query.path, () => {
   fetchFiles()
 })
@@ -244,20 +245,16 @@ const handleItemClick = (file) => {
   selectedFile.value = file
 
   if (file.is_dir) {
-    // 进入目录
     const newPath = currentPath.value ? currentPath.value + '/' + file.name : file.name
     navigateTo(newPath)
   } else {
-    // 打开预览
     openPreview(file)
   }
 }
 
 const openPreview = (file) => {
   const type = getFileType(file.name)
-  const filePath = currentPath.value
-    ? currentPath.value + '/' + file.name
-    : file.name
+  const filePath = currentPath.value ? currentPath.value + '/' + file.name : file.name
 
   if (type === 'image') {
     router.push({ path: '/files/preview', query: { path: filePath, name: file.name } })
@@ -274,9 +271,7 @@ const openInNewWindow = (file) => {
 }
 
 const downloadFile = (file) => {
-  const filePath = currentPath.value
-    ? currentPath.value + '/' + file.name
-    : file.name
+  const filePath = currentPath.value ? currentPath.value + '/' + file.name : file.name
   const url = getFileUrl(filePath)
   window.open(url, '_blank')
 }
@@ -310,6 +305,39 @@ const handleFileSelect = async (event) => {
 const showMkdirDialog = () => {
   newDirName.value = ''
   mkdirDialogVisible.value = true
+}
+
+const playOnEsp32 = async (file) => {
+  try {
+    const filePath = currentPath.value ? currentPath.value + '/' + file.name : file.name
+    ElMessage.info('正在播放: ' + file.name)
+    
+    // 设置超时
+    const res = await Promise.race([
+      playAudioFile(filePath),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('timeout')), 10000)
+      )
+    ])
+
+    if (res.data.success) {
+      ElMessage.success('播放中: ' + file.name + ` (${Math.round(res.data.duration_ms / 1000)}秒)`)
+    } else {
+      const errorMsg = res.data.error || res.data.message || '未知错误'
+      if (errorMsg.includes('格式不支持')) {
+        ElMessage.warning('MP3 格式暂不支持，请使用 WAV 格式')
+      } else {
+        ElMessage.error('播放失败: ' + errorMsg)
+      }
+    }
+  } catch (error) {
+    if (error.message === 'timeout') {
+      ElMessage.warning('播放超时，MP3 格式暂不支持')
+    } else {
+      ElMessage.error('播放失败')
+    }
+    console.error(error)
+  }
 }
 
 const handleCreateDir = async () => {
@@ -359,47 +387,42 @@ const handleDelete = async (file) => {
 onMounted(fetchData)
 </script>
 
-<style scoped>
-.file-manager {
-  max-width: 1200px;
-  margin: 0 auto;
-}
+<style scoped lang="scss">
+@import '@/styles/variables';
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.file-manager {
+  max-width: 100%;
 }
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  gap: $spacing-sm;
 }
 
 .storage-info {
-  margin-bottom: 15px;
+  margin-bottom: $spacing-base;
 }
 
 .storage-text {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 8px;
-  font-size: 12px;
-  color: #606266;
+  margin-top: $spacing-sm;
+  font-size: $font-size-xs;
+  color: $text-regular;
 }
 
 .path-nav {
-  margin-bottom: 15px;
-  padding: 10px;
-  background: #f5f7fa;
-  border-radius: 6px;
+  margin-bottom: $spacing-base;
+  padding: $spacing-md;
+  background: $bg-color;
+  border-radius: $border-radius-base;
 }
 
 .path-link {
-  color: #409eff;
+  color: $primary-color;
   cursor: pointer;
-  font-size: 13px;
+  font-size: $font-size-sm;
 }
 
 .path-link:hover {
@@ -409,7 +432,7 @@ onMounted(fetchData)
 .file-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
+  gap: $spacing-md;
   min-height: 200px;
 }
 
@@ -417,25 +440,25 @@ onMounted(fetchData)
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 8px;
-  border-radius: 8px;
+  padding: $spacing-md $spacing-sm;
+  border-radius: $border-radius-base;
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
-  background: #fff;
-  border: 1px solid #ebeef5;
+  background: $bg-color-white;
+  border: 1px solid $border-color-lighter;
 }
 
 .file-card:hover {
-  background: #f5f7fa;
-  border-color: #409eff;
+  background: $bg-color;
+  border-color: $primary-color;
   transform: translateY(-2px);
-  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.15);
+  box-shadow: 0 2px 12px rgba($primary-color, 0.15);
 }
 
 .file-card-selected {
   background: #ecf5ff;
-  border-color: #409eff;
+  border-color: $primary-color;
 }
 
 .back-card {
@@ -449,7 +472,7 @@ onMounted(fetchData)
 
 .back-icon {
   font-size: 36px;
-  color: #909399;
+  color: $text-secondary;
   line-height: 48px;
 }
 
@@ -464,7 +487,7 @@ onMounted(fetchData)
 }
 
 .file-name {
-  font-size: 12px;
+  font-size: $font-size-xs;
   text-align: center;
   word-break: break-all;
   overflow: hidden;
@@ -473,19 +496,19 @@ onMounted(fetchData)
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   max-width: 100%;
-  color: #303133;
+  color: $text-primary;
 }
 
 .file-size {
   font-size: 11px;
-  color: #909399;
-  margin-top: 4px;
+  color: $text-secondary;
+  margin-top: $spacing-xs;
 }
 
 .file-actions {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: $spacing-xs;
+  right: $spacing-xs;
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -500,12 +523,7 @@ onMounted(fetchData)
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  color: #909399;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 10px;
+  padding: $spacing-xxl;
+  color: $text-secondary;
 }
 </style>
