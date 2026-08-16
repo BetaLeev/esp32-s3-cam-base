@@ -3,23 +3,23 @@
  * @brief WiFi 配置管理模块实现 - NVS持久化存储 + AP/STA配置管理
  */
 #include "wifi_config.h"
-#include "wifi.h"
 #include "../config.h"
 #include "config/hw_wifi.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
-#include "nvs_flash.h"
-#include "nvs.h"
-#include "esp_event.h"
-#include "string.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "string.h"
+#include "wifi.h"
 
 static const char *TAG = "WIFI_CONFIG";
 
 /* 全局配置状态 */
 static app_wifi_config_t g_wifi_config = {0};
-static app_wifi_mode_t g_current_mode = APP_WIFI_MODE_AP_STA;  /* 默认混合模式 */
+static app_wifi_mode_t g_current_mode = APP_WIFI_MODE_AP_STA; /* 默认混合模式 */
 static bool g_sta_connected = false;
 static bool g_ap_running = false;
 static uint8_t g_ap_connected_clients = 0;
@@ -27,8 +27,8 @@ static wifi_ap_record_t *g_ap_list = NULL;
 static uint16_t g_ap_count = 0;
 
 /* 默认 AP 配置 */
-static const char* DEFAULT_AP_SSID = WIFI_AP_SSID;
-static const char* DEFAULT_AP_PASSWORD = WIFI_AP_PASSWORD;
+static const char *DEFAULT_AP_SSID = WIFI_AP_SSID;
+static const char *DEFAULT_AP_PASSWORD = WIFI_AP_PASSWORD;
 static const uint8_t DEFAULT_AP_CHANNEL = WIFI_AP_CHANNEL;
 
 /* ========================================
@@ -38,16 +38,14 @@ static const uint8_t DEFAULT_AP_CHANNEL = WIFI_AP_CHANNEL;
 /**
  * @brief 打开 NVS 句柄
  */
-static esp_err_t nvs_open_handle(nvs_handle_t *handle, nvs_open_mode_t mode)
-{
+static esp_err_t nvs_open_handle(nvs_handle_t *handle, nvs_open_mode_t mode) {
     return nvs_open(WIFI_CONFIG_NAMESPACE, mode, handle);
 }
 
 /**
  * @brief 保存字符串到 NVS
  */
-static esp_err_t nvs_save_string(nvs_handle_t handle, const char *key, const char *value)
-{
+static esp_err_t nvs_save_string(nvs_handle_t handle, const char *key, const char *value) {
     if (value == NULL || strlen(value) == 0) {
         return nvs_set_str(handle, key, "");
     }
@@ -61,8 +59,7 @@ static esp_err_t nvs_save_string(nvs_handle_t handle, const char *key, const cha
 /**
  * @brief 保存 WiFi STA 配置到 NVS
  */
-esp_err_t wifi_config_save_sta(const app_wifi_sta_config_t *config)
-{
+esp_err_t wifi_config_save_sta(const app_wifi_sta_config_t *config) {
     nvs_handle_t handle;
     esp_err_t ret = nvs_open_handle(&handle, NVS_READWRITE);
     if (ret != ESP_OK) {
@@ -105,8 +102,7 @@ esp_err_t wifi_config_save_sta(const app_wifi_sta_config_t *config)
 /**
  * @brief 从 NVS 加载 WiFi STA 配置
  */
-esp_err_t wifi_config_load_sta(app_wifi_sta_config_t *config)
-{
+esp_err_t wifi_config_load_sta(app_wifi_sta_config_t *config) {
     nvs_handle_t handle;
     esp_err_t ret = nvs_open_handle(&handle, NVS_READONLY);
     if (ret != ESP_OK) {
@@ -136,21 +132,19 @@ esp_err_t wifi_config_load_sta(app_wifi_sta_config_t *config)
 /**
  * @brief 获取当前 WiFi STA 配置
  */
-const app_wifi_sta_config_t* wifi_config_get_sta(void)
-{
+const app_wifi_sta_config_t *wifi_config_get_sta(void) {
     return &g_wifi_config.sta;
 }
 
 /**
  * @brief 连接到指定 WiFi
  */
-esp_err_t wifi_config_connect(const char *ssid, const char *password)
-{
+esp_err_t wifi_config_connect(const char *ssid, const char *password) {
     wifi_config_t wifi_config = {0};
 
-    strncpy((char*)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid) - 1);
+    strncpy((char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid) - 1);
     if (password && strlen(password) > 0) {
-        strncpy((char*)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
+        strncpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password) - 1);
     }
 
     wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
@@ -181,8 +175,7 @@ esp_err_t wifi_config_connect(const char *ssid, const char *password)
 /**
  * @brief 断开 WiFi 连接
  */
-esp_err_t wifi_config_disconnect(void)
-{
+esp_err_t wifi_config_disconnect(void) {
     esp_err_t ret = esp_wifi_disconnect();
     if (ret == ESP_OK) {
         g_sta_connected = false;
@@ -193,8 +186,7 @@ esp_err_t wifi_config_disconnect(void)
 /**
  * @brief 获取 STA 连接状态
  */
-bool wifi_config_is_sta_connected(void)
-{
+bool wifi_config_is_sta_connected(void) {
     return g_sta_connected;
 }
 
@@ -205,8 +197,7 @@ bool wifi_config_is_sta_connected(void)
 /**
  * @brief 保存 WiFi AP 配置到 NVS
  */
-esp_err_t wifi_config_save_ap(const app_wifi_ap_config_t *config)
-{
+esp_err_t wifi_config_save_ap(const app_wifi_ap_config_t *config) {
     nvs_handle_t handle;
     esp_err_t ret = nvs_open_handle(&handle, NVS_READWRITE);
     if (ret != ESP_OK) {
@@ -249,8 +240,7 @@ esp_err_t wifi_config_save_ap(const app_wifi_ap_config_t *config)
 /**
  * @brief 从 NVS 加载 WiFi AP 配置
  */
-esp_err_t wifi_config_load_ap(app_wifi_ap_config_t *config)
-{
+esp_err_t wifi_config_load_ap(app_wifi_ap_config_t *config) {
     nvs_handle_t handle;
     esp_err_t ret = nvs_open_handle(&handle, NVS_READONLY);
     if (ret != ESP_OK) {
@@ -281,30 +271,28 @@ esp_err_t wifi_config_load_ap(app_wifi_ap_config_t *config)
 /**
  * @brief 获取当前 WiFi AP 配置
  */
-const app_wifi_ap_config_t* wifi_config_get_ap(void)
-{
+const app_wifi_ap_config_t *wifi_config_get_ap(void) {
     return &g_wifi_config.ap;
 }
 
 /**
  * @brief 启动 AP 热点
  */
-esp_err_t wifi_config_start_ap(const char *ssid, const char *password, uint8_t channel)
-{
+esp_err_t wifi_config_start_ap(const char *ssid, const char *password, uint8_t channel) {
     wifi_config_t ap_config = {0};
 
     /* 设置 SSID */
     if (ssid && strlen(ssid) > 0) {
-        strncpy((char*)ap_config.ap.ssid, ssid, sizeof(ap_config.ap.ssid) - 1);
+        strncpy((char *)ap_config.ap.ssid, ssid, sizeof(ap_config.ap.ssid) - 1);
         ap_config.ap.ssid_len = strlen(ssid);
     } else {
-        strncpy((char*)ap_config.ap.ssid, DEFAULT_AP_SSID, sizeof(ap_config.ap.ssid) - 1);
+        strncpy((char *)ap_config.ap.ssid, DEFAULT_AP_SSID, sizeof(ap_config.ap.ssid) - 1);
         ap_config.ap.ssid_len = strlen(DEFAULT_AP_SSID);
     }
 
     /* 设置密码和加密模式 */
     if (password && strlen(password) >= 8) {
-        strncpy((char*)ap_config.ap.password, password, sizeof(ap_config.ap.password) - 1);
+        strncpy((char *)ap_config.ap.password, password, sizeof(ap_config.ap.password) - 1);
         ap_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
     } else {
         ap_config.ap.password[0] = '\0';
@@ -340,8 +328,7 @@ esp_err_t wifi_config_start_ap(const char *ssid, const char *password, uint8_t c
 /**
  * @brief 停止 AP 热点
  */
-esp_err_t wifi_config_stop_ap(void)
-{
+esp_err_t wifi_config_stop_ap(void) {
     /* 关闭 AP - 设置空配置 */
     wifi_config_t ap_config = {0};
     ap_config.ap.authmode = WIFI_AUTH_OPEN;
@@ -361,16 +348,14 @@ esp_err_t wifi_config_stop_ap(void)
 /**
  * @brief 获取 AP 运行状态
  */
-bool wifi_config_is_ap_running(void)
-{
+bool wifi_config_is_ap_running(void) {
     return g_ap_running;
 }
 
 /**
  * @brief 获取 AP 连接的客户端数量
  */
-int wifi_config_get_ap_clients(void)
-{
+int wifi_config_get_ap_clients(void) {
     return g_ap_connected_clients;
 }
 
@@ -381,21 +366,20 @@ int wifi_config_get_ap_clients(void)
 /**
  * @brief 设置 WiFi 运行模式
  */
-esp_err_t wifi_config_set_mode(app_wifi_mode_t mode)
-{
+esp_err_t wifi_config_set_mode(app_wifi_mode_t mode) {
     wifi_mode_t esp_mode;
 
     switch (mode) {
-        case APP_WIFI_MODE_STA:
-            esp_mode = WIFI_MODE_STA;
-            break;
-        case APP_WIFI_MODE_AP:
-            esp_mode = WIFI_MODE_AP;
-            break;
-        case APP_WIFI_MODE_AP_STA:
-        default:
-            esp_mode = WIFI_MODE_APSTA;
-            break;
+    case APP_WIFI_MODE_STA:
+        esp_mode = WIFI_MODE_STA;
+        break;
+    case APP_WIFI_MODE_AP:
+        esp_mode = WIFI_MODE_AP;
+        break;
+    case APP_WIFI_MODE_AP_STA:
+    default:
+        esp_mode = WIFI_MODE_APSTA;
+        break;
     }
 
     esp_err_t ret = esp_wifi_set_mode(esp_mode);
@@ -409,7 +393,8 @@ esp_err_t wifi_config_set_mode(app_wifi_mode_t mode)
     /* 根据模式启动/停止对应服务 */
     if (mode == APP_WIFI_MODE_AP || mode == APP_WIFI_MODE_AP_STA) {
         /* 启动 AP */
-        wifi_config_start_ap(g_wifi_config.ap.ssid, g_wifi_config.ap.password, g_wifi_config.ap.channel);
+        wifi_config_start_ap(g_wifi_config.ap.ssid, g_wifi_config.ap.password,
+                             g_wifi_config.ap.channel);
     } else {
         /* 停止 AP */
         wifi_config_stop_ap();
@@ -440,8 +425,7 @@ esp_err_t wifi_config_set_mode(app_wifi_mode_t mode)
 /**
  * @brief 获取当前 WiFi 运行模式
  */
-app_wifi_mode_t wifi_config_get_mode(void)
-{
+app_wifi_mode_t wifi_config_get_mode(void) {
     return g_current_mode;
 }
 
@@ -452,19 +436,21 @@ app_wifi_mode_t wifi_config_get_mode(void)
 /**
  * @brief 保存完整配置到 NVS
  */
-esp_err_t wifi_config_save_full(const app_wifi_config_t *config)
-{
+esp_err_t wifi_config_save_full(const app_wifi_config_t *config) {
     /* 保存各部分配置 */
     esp_err_t ret = wifi_config_save_sta(&config->sta);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK)
+        return ret;
 
     ret = wifi_config_save_ap(&config->ap);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK)
+        return ret;
 
     /* 保存模式 */
     nvs_handle_t handle;
     ret = nvs_open_handle(&handle, NVS_READWRITE);
-    if (ret != ESP_OK) return ret;
+    if (ret != ESP_OK)
+        return ret;
 
     ret = nvs_set_u8(handle, "wifi_mode", (uint8_t)config->mode);
     ret = nvs_commit(handle);
@@ -480,8 +466,7 @@ esp_err_t wifi_config_save_full(const app_wifi_config_t *config)
 /**
  * @brief 从 NVS 加载完整配置
  */
-esp_err_t wifi_config_load_full(app_wifi_config_t *config)
-{
+esp_err_t wifi_config_load_full(app_wifi_config_t *config) {
     /* 加载 STA 配置 */
     wifi_config_load_sta(&config->sta);
 
@@ -491,7 +476,7 @@ esp_err_t wifi_config_load_full(app_wifi_config_t *config)
     /* 加载模式 */
     nvs_handle_t handle;
     if (nvs_open_handle(&handle, NVS_READONLY) == ESP_OK) {
-        uint8_t mode = APP_WIFI_MODE_AP_STA;  /* 默认混合模式 */
+        uint8_t mode = APP_WIFI_MODE_AP_STA; /* 默认混合模式 */
         nvs_get_u8(handle, "wifi_mode", &mode);
         config->mode = (app_wifi_mode_t)mode;
         nvs_close(handle);
@@ -505,8 +490,7 @@ esp_err_t wifi_config_load_full(app_wifi_config_t *config)
 /**
  * @brief 获取完整配置
  */
-const app_wifi_config_t* wifi_config_get_full(void)
-{
+const app_wifi_config_t *wifi_config_get_full(void) {
     return &g_wifi_config;
 }
 
@@ -517,8 +501,7 @@ const app_wifi_config_t* wifi_config_get_full(void)
 /**
  * @brief 扫描可用 WiFi 网络
  */
-esp_err_t wifi_config_scan(wifi_ap_record_t **ap_list, uint16_t *ap_count)
-{
+esp_err_t wifi_config_scan(wifi_ap_record_t **ap_list, uint16_t *ap_count) {
     wifi_config_scan_free();
 
     ESP_LOGI(TAG, "开始扫描 WiFi 网络...");
@@ -568,8 +551,7 @@ esp_err_t wifi_config_scan(wifi_ap_record_t **ap_list, uint16_t *ap_count)
 /**
  * @brief 释放扫描结果内存
  */
-void wifi_config_scan_free(void)
-{
+void wifi_config_scan_free(void) {
     if (g_ap_list) {
         free(g_ap_list);
         g_ap_list = NULL;
@@ -584,8 +566,7 @@ void wifi_config_scan_free(void)
 /**
  * @brief WiFi 配置初始化 - 默认混合模式
  */
-esp_err_t wifi_config_init(void)
-{
+esp_err_t wifi_config_init(void) {
     esp_err_t ret;
 
     /* 初始化 NVS */
@@ -600,12 +581,12 @@ esp_err_t wifi_config_init(void)
     }
 
     /* 设置默认值 */
-    g_wifi_config.mode = APP_WIFI_MODE_AP_STA;  /* 默认混合模式 */
+    g_wifi_config.mode = APP_WIFI_MODE_AP_STA; /* 默认混合模式 */
     strncpy(g_wifi_config.ap.ssid, DEFAULT_AP_SSID, WIFI_SSID_MAX_LEN);
     strncpy(g_wifi_config.ap.password, DEFAULT_AP_PASSWORD, WIFI_PASSWORD_MAX_LEN);
     g_wifi_config.ap.channel = DEFAULT_AP_CHANNEL;
     g_wifi_config.sta.auto_connect = true;
-    
+
     /* 设置默认 STA 配置（编译时默认值） */
     strncpy(g_wifi_config.sta.ssid, WIFI_STA_SSID, WIFI_SSID_MAX_LEN);
     strncpy(g_wifi_config.sta.password, WIFI_STA_PASSWORD, WIFI_PASSWORD_MAX_LEN);
@@ -615,10 +596,10 @@ esp_err_t wifi_config_init(void)
     if (ret != ESP_OK) {
         ESP_LOGI(TAG, "使用默认配置 (混合模式)");
     } else {
-        ESP_LOGI(TAG, "已加载配置: mode=%d, STA=%s, AP=%s",
-                 g_wifi_config.mode, g_wifi_config.sta.ssid, g_wifi_config.ap.ssid);
+        ESP_LOGI(TAG, "已加载配置: mode=%d, STA=%s, AP=%s", g_wifi_config.mode,
+                 g_wifi_config.sta.ssid, g_wifi_config.ap.ssid);
     }
-    
+
     /* 如果 NVS 中 STA SSID 为空，使用默认配置 */
     if (strlen(g_wifi_config.sta.ssid) == 0) {
         strncpy(g_wifi_config.sta.ssid, WIFI_STA_SSID, WIFI_SSID_MAX_LEN);
@@ -627,7 +608,7 @@ esp_err_t wifi_config_init(void)
     }
 
     g_current_mode = g_wifi_config.mode;
-    g_ap_running = true;  /* 默认开启 AP */
+    g_ap_running = true; /* 默认开启 AP */
 
     return ESP_OK;
 }
@@ -635,8 +616,7 @@ esp_err_t wifi_config_init(void)
 /**
  * @brief WiFi 配置反初始化
  */
-esp_err_t wifi_config_deinit(void)
-{
+esp_err_t wifi_config_deinit(void) {
     wifi_config_scan_free();
     return ESP_OK;
 }
@@ -648,23 +628,20 @@ esp_err_t wifi_config_deinit(void)
 /**
  * @brief 更新 STA 连接状态（由 wifi_event_handler 调用）
  */
-void wifi_config_update_sta_connected(bool connected)
-{
+void wifi_config_update_sta_connected(bool connected) {
     g_sta_connected = connected;
 }
 
 /**
  * @brief 更新 AP 客户端数量（由 wifi_event_handler 调用）
  */
-void wifi_config_update_ap_clients(uint8_t count)
-{
+void wifi_config_update_ap_clients(uint8_t count) {
     g_ap_connected_clients = count;
 }
 
 /**
  * @brief 获取 AP 客户端数量（内部）
  */
-uint8_t wifi_config_get_ap_clients_internal(void)
-{
+uint8_t wifi_config_get_ap_clients_internal(void) {
     return g_ap_connected_clients;
 }

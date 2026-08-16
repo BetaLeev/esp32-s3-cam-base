@@ -22,8 +22,7 @@ esp_err_t web_filesystem_init(void) {
 
     esp_vfs_littlefs_conf_t conf = {.base_path = WEBFS_BASE_PATH,
                                     .partition_label = WEBFS_PARTITION_LABEL,
-                                    .format_if_mount_failed =
-                                        false, // 禁止挂载失败时格式化！防止冲掉烧录好的镜像
+                                    .format_if_mount_failed = false,
                                     .dont_mount = false};
 
     esp_err_t ret = esp_vfs_littlefs_register(&conf);
@@ -58,6 +57,7 @@ esp_err_t web_filesystem_init(void) {
 
     return ESP_OK;
 }
+
 /**
  * @brief 获取文件系统信息
  */
@@ -80,7 +80,7 @@ static const char *get_mime_type(const char *path) {
         return "text/html";
     if (strcasecmp(ext, ".css") == 0)
         return "text/css";
-    if (strcasecmp(ext, ".js") == 0)
+    if (strcasecmp(ext, ".js") == 0 || strcasecmp(ext, ".mjs") == 0)
         return "application/javascript";
     if (strcasecmp(ext, ".json") == 0)
         return "application/json";
@@ -115,6 +115,10 @@ static const char *get_mime_type(const char *path) {
  */
 esp_err_t web_filesystem_read_file(const char *path, char **out_buffer, size_t *out_len) {
     char full_path[256];
+    
+    // 自动剥离前导斜杠防止 // 路径问题
+    while (path && *path == '/') path++;
+    
     snprintf(full_path, sizeof(full_path), "%s/%s", WEBFS_BASE_PATH, path);
 
     FILE *f = fopen(full_path, "rb");
@@ -149,13 +153,20 @@ esp_err_t web_filesystem_read_file(const char *path, char **out_buffer, size_t *
 }
 
 /**
- * @brief 发送静态文件到 HTTP 客户端（包含 SPA Fallback 逻辑）
+ * @brief 发送静态文件到 HTTP 客户端（修正了双斜杠与 SPA Fallback 逻辑）
  */
 esp_err_t web_filesystem_serve_file(httpd_req_t *req, const char *filepath) {
     char full_path[256];
 
-    // 如果传入路径为空或为 "/"，默认映射到 index.html
-    if (filepath == NULL || strlen(filepath) == 0 || strcmp(filepath, "/") == 0) {
+    // 1. 规范化路径：剥离前导 '/' 字符，避免拼出 "/web//assets/..."
+    if (filepath != NULL) {
+        while (*filepath == '/') {
+            filepath++;
+        }
+    }
+
+    // 2. 空路径或根请求统一定向到 index.html
+    if (filepath == NULL || strlen(filepath) == 0) {
         filepath = "index.html";
     }
 
@@ -163,47 +174,40 @@ esp_err_t web_filesystem_serve_file(httpd_req_t *req, const char *filepath) {
 
     FILE *f = fopen(full_path, "rb");
     if (f == NULL) {
-        // 判断是否为带后缀的静态资源请求
+        // 判断请求的资源文件是否有后缀名
         const char *ext = strrchr(filepath, '.');
-        bool is_static_resource =
-            (ext && (strcasecmp(ext, ".js") == 0 || strcasecmp(ext, ".css") == 0 ||
-                     strcasecmp(ext, ".png") == 0 || strcasecmp(ext, ".jpg") == 0 ||
-                     strcasecmp(ext, ".ico") == 0 || strcasecmp(ext, ".svg") == 0 ||
-                     strcasecmp(ext, ".woff2") == 0 || strcasecmp(ext, ".woff") == 0 ||
-                     strcasecmp(ext, ".ttf") == 0 || strcasecmp(ext, ".eot") == 0 ||
-                     strcasecmp(ext, ".json") == 0));
 
-        // 如果是特定的静态资源请求缺失，直接返回 404
-        if (is_static_resource) {
-            ESP_LOGW(TAG, "静态资源未找到: %s", filepath);
+        // 如果包含文件扩展名且不是 html，说明是真实的静态文件资源缺失，决不能 fallback 回 index.html
+        if (ext != NULL && strcasecmp(ext, ".html") != 0 && strcasecmp(ext, ".htm") != 0) {
+            ESP_LOGW(TAG, "静态资源缺失 404: %s", full_path);
             httpd_resp_send_404(req);
             return ESP_FAIL;
         }
 
-        // Vue 前端路由请求（如 /setting, /about），重定向 fallback 到 index.html
-        ESP_LOGI(TAG, "SPA fallback: %s -> index.html", filepath);
+        // 无扩展名（如 /setting, /about）才视为 Vue 前端路由，返回 index.html
+        ESP_LOGI(TAG, "SPA 路由 Fallback: %s -> index.html", filepath);
         snprintf(full_path, sizeof(full_path), "%s/index.html", WEBFS_BASE_PATH);
         f = fopen(full_path, "rb");
         if (f == NULL) {
-            ESP_LOGE(TAG, "FATAL: index.html 也不存在! 请确认 Flash 中已烧录 webfs 镜像。");
+            ESP_LOGE(TAG, "FATAL: index.html 不存在!");
             httpd_resp_send_404(req);
             return ESP_FAIL;
         }
     }
 
-    // 设置 Content-Type 及 CORS Header
+    // 3. 动态配置正确的 MIME 类型与跨域 Header
     httpd_resp_set_type(req, get_mime_type(full_path));
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
 
-    // JS/CSS 等资源可开启缓存，html 页面关闭缓存
+    // HTML 禁用强缓存，JS/CSS 等静态资源配置长期缓存以提升加载速度
     if (strstr(full_path, ".html")) {
         httpd_resp_set_hdr(req, "Cache-Control", "no-cache, no-store, must-revalidate");
     } else {
         httpd_resp_set_hdr(req, "Cache-Control", "max-age=31536000");
     }
 
-    // 块传输文件内容
-    char chunk[1024];
+    // 4. 分块传输响应内容
+    char chunk[2048];
     size_t bytes_read;
     while ((bytes_read = fread(chunk, 1, sizeof(chunk), f)) > 0) {
         if (httpd_resp_send_chunk(req, chunk, bytes_read) != ESP_OK) {
@@ -213,6 +217,6 @@ esp_err_t web_filesystem_serve_file(httpd_req_t *req, const char *filepath) {
     }
 
     fclose(f);
-    httpd_resp_send_chunk(req, NULL, 0); // 结束分块传输
+    httpd_resp_send_chunk(req, NULL, 0); // 发送结束标记
     return ESP_OK;
 }

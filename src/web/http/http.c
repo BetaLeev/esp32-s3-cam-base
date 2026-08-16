@@ -73,7 +73,7 @@ esp_err_t web_http_init(void) {
 
     // ---- 优化 Socket 资源，解决 error (23) ----
     config.stack_size = 10240;
-    config.max_open_sockets = 10;   // 适当增加 Socket 句柄（默认 7）
+    config.max_open_sockets = 7;   // 适当增加 Socket 句柄（默认 7）
     config.lru_purge_enable = true; // 开启 LRU 机制：Socket 满时自动清理老旧闲置连接
     config.recv_wait_timeout = 5;   // 降低接收超时时间，加速 Socket 回收
     config.send_wait_timeout = 5;   // 降低发送超时时间

@@ -18,7 +18,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://192.168.102.158:80',
+        target: 'http://192.168.4.1',
         changeOrigin: true,
         ws: true,
         timeout: 600000,         // 请求超时 10 分钟
@@ -36,7 +36,7 @@ export default defineConfig({
         }
       },
       '/fs': {
-        target: 'http://192.168.102.158:80',
+        target: 'http://192.168.4.1',
         changeOrigin: true,
         timeout: 60000
       }
