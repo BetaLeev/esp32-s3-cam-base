@@ -5,7 +5,7 @@
 #include "system_web.h"
 #include "system.h"
 #include "../config.h"
-#include "../web_module.h"
+#include "../web/web_module.h"
 #include "../device/led/led.h"
 #include "../wifi/wifi.h"
 #include "esp_http_server.h"

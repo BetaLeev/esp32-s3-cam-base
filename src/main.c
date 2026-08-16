@@ -14,14 +14,13 @@
 #include <string.h>
 
 #include "config.h"
-#include "dns_server.h"
-#include "http_server.h"
 #include "lwip/ip_addr.h"
 #include "nvs_flash.h"
 #include "sdcard/sdcard.h"
-#include "spiffs_web.h"
 #include "wifi/wifi.h"
 #include "wifi/wifi_config.h"
+#include "web/web.h"
+#include "web/filesystem/filesystem.h"
 
 #include "device/servo/servo.h"
 #include "device/motor/motor.h"
@@ -64,10 +63,10 @@ static void update_hardware_resources(void) {
         g_system_status.flash_free = flash_size;
     }
 
-    /* SPIFFS信息 */
+    /* LittleFS 信息 */
     size_t spiffs_total = 0;
     size_t spiffs_free = 0;
-    if (spiffs_web_get_info(&spiffs_total, &spiffs_free) == ESP_OK) {
+    if (web_filesystem_get_info(&spiffs_total, &spiffs_free) == ESP_OK) {
         g_system_status.spiffs_total = (uint32_t)spiffs_total;
         g_system_status.spiffs_free = (uint32_t)spiffs_free;
     }
@@ -228,28 +227,14 @@ void app_main(void) {
         MAIN_LOGW(TAG, "Wi-Fi配置管理初始化失败: %s", esp_err_to_name(ret));
     }
 
-    /* 4. 启动 DNS 服务器 */
-    ret = dns_server_init();
+    /* 4. 初始化 Web 模块 (DNS + HTTP + 文件系统) */
+    ret = web_init();
     if (ret != ESP_OK) {
-        MAIN_LOGE(TAG, "DNS服务器启动失败: %s", esp_err_to_name(ret));
+        MAIN_LOGE(TAG, "Web模块初始化失败: %s", esp_err_to_name(ret));
         return;
     }
 
-    /* 5. 初始化 SPIFFS 文件系统 */
-    ret = spiffs_web_init();
-    if (ret != ESP_OK) {
-        MAIN_LOGE(TAG, "SPIFFS初始化失败: %s", esp_err_to_name(ret));
-        return;
-    }
-
-    /* 6. 启动 HTTP 服务器 */
-    ret = http_server_init();
-    if (ret != ESP_OK) {
-        MAIN_LOGE(TAG, "HTTP服务器启动失败: %s", esp_err_to_name(ret));
-        return;
-    }
-
-    /* 7. 注册所有模块的 Web API 路由 */
+    /* 5. 注册所有模块的 Web API 路由 */
     ret = audio_web_init();
     if (ret != ESP_OK) {
         MAIN_LOGW(TAG, "音频Web接口注册失败: %s", esp_err_to_name(ret));
@@ -266,7 +251,7 @@ void app_main(void) {
         MAIN_LOGW(TAG, "TF卡初始化失败");
     }
 
-    /* 8. 初始化 AI 语音模块 */
+    /* 6. 初始化 AI 语音模块 */
     ret = ai_init();
     if (ret != ESP_OK) {
         MAIN_LOGW(TAG, "AI模块初始化失败: %s", esp_err_to_name(ret));

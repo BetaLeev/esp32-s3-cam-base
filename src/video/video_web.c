@@ -5,7 +5,7 @@
 
 #include "video_web.h"
 #include "../config.h"
-#include "../web_module.h"
+#include "../web/web_module.h"
 #include "cJSON.h"
 #include "esp_err.h"
 #include "esp_http_server.h"

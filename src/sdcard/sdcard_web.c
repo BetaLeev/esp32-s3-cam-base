@@ -7,7 +7,7 @@
 #include "../config.h"
 #include "../utils/mime_utils.h"
 #include "../utils/path_utils.h"
-#include "../web_module.h"
+#include "../web/web_module.h"
 #include "esp_http_server.h"
 #include "esp_heap_caps.h" // 新增：用于支持 PSRAM 内存分配
 #include "ff.h"

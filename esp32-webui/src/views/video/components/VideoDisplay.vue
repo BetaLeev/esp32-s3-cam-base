@@ -181,7 +181,8 @@ onMounted(() => {
   border-radius: 10px;
   overflow: hidden;
   position: relative;
-  min-height: 360px;
+  height: 400px;
+  max-height: 400px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -206,12 +207,16 @@ onMounted(() => {
 .video-wrapper {
   position: relative;
   width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 /* 占位图样式 */
 .video-placeholder {
   width: 100%;
-  min-height: 400px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -267,11 +272,11 @@ onMounted(() => {
 
 .video-frame {
   width: 100%;
-  height: auto;
-  max-height: 540px;
+  height: 100%;
   object-fit: contain;
   background: #000;
   display: block;
+  max-height: 400px;
 }
 
 .video-overlay {

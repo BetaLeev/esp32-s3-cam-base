@@ -1,0 +1,17 @@
+idf_component_register(
+    SRCS
+        "web.c"
+        "dns/dns.c"
+        "http/http.c"
+        "filesystem/filesystem.c"
+    INCLUDE_DIRS
+        "."
+        "dns"
+        "http"
+        "filesystem"
+    REQUIRES
+        esp_http_server
+        esp_littlefs
+        lwip
+        wifi
+)

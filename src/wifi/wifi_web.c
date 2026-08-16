@@ -5,7 +5,7 @@
 #include "wifi_web.h"
 #include "wifi_config.h"
 #include "wifi.h"
-#include "../web_module.h"
+#include "../web/web_module.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "cJSON.h"

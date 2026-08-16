@@ -49,7 +49,7 @@ esp_err_t audio_web_api_get_status(httpd_req_t *req);
  * @brief 播放WAV文件API
  * @note URI: /api/audio/play
  * @note Method: POST
- * @note Body: {"file": "/spiffs/test.wav"}
+ * @note Body: {"file": "/web/test.wav"}
  */
 esp_err_t audio_web_api_play(httpd_req_t *req);
 

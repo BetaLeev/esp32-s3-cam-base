@@ -7,7 +7,7 @@
 #include "../config.h"
 #include "../sensors/sensors.h"
 #include "soilhumidity/soilhumidity.h"
-#include "../web_module.h"
+#include "../web/web_module.h"
 #include <stdlib.h>
 #include <string.h>
 #include "cJSON.h"

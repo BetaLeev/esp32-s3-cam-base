@@ -5,7 +5,7 @@
 
 #include "servo_web.h"
 #include "servo.h"
-#include "../../web_module.h"
+#include "../../web/web_module.h"
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include <stdlib.h>

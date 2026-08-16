@@ -18,6 +18,8 @@ FILE(GLOB_RECURSE app_sources
     ${CMAKE_SOURCE_DIR}/src/audio/*.cpp
     ${CMAKE_SOURCE_DIR}/src/ai/*.c
     ${CMAKE_SOURCE_DIR}/src/config/*.c
+    ${CMAKE_SOURCE_DIR}/src/web/*.c
+    ${CMAKE_SOURCE_DIR}/src/web/**/*.c
 )
 
 idf_component_register(SRCS ${app_sources}
@@ -30,7 +32,6 @@ idf_component_register(SRCS ${app_sources}
         esp_http_server   # HTTP服务器
         esp_timer         # 定时器
         freertos          # FreeRTOS操作系统
-        spiffs            # SPIFFS文件系统
         driver            # GPIO、PWM等硬件驱动
         mbedtls           # TLS/SSL加密
         cjson             # JSON 解析

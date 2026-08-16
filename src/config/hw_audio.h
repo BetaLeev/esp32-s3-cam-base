@@ -43,7 +43,7 @@
 #define AUDIO_DEFAULT_BCLK    GPIO_AUDIO_BCLK
 #define AUDIO_DEFAULT_WS      GPIO_AUDIO_WS
 #define AUDIO_DEFAULT_DIN     GPIO_AUDIO_DIN
-#define AUDIO_DEFAULT_GAIN    0    /**< 增益控制引脚 - GPIO0 (空闲GPIO) */
+#define AUDIO_DEFAULT_GAIN    14   /**< 增益控制引脚 - GPIO14 (避免使用GPIO0) */
 #define AUDIO_DEFAULT_SD      GPIO_AUDIO_SD /**< SD (Shutdown) 引脚 */
 
 /* ========================================

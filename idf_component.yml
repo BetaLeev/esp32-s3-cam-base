@@ -8,6 +8,9 @@ description: ESP32-S3 Camera + Audio System
 
 ## 核心依赖
 dependencies:
+  ## LittleFS 文件系统
+joltwallet/littlefs:
+    version: "^1.14.0"
   ## ESP-ADF Audio Pipeline - 音频处理管道（包含 MP3 解码器）
   espressif/audio_pipeline: "^1.0.0"
 

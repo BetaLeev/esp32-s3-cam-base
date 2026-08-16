@@ -6,7 +6,7 @@
 #include "audio.h"
 #include "audio_json.h"
 #include "audio_simple.h"
-#include "../http_server.h"
+#include "../web/http/http.h"
 #include "../utils/path_utils.h"
 #include "config.h"
 #include "esp_log.h"
@@ -326,7 +326,7 @@ static const httpd_uri_t audio_gain_uri = {
 
 esp_err_t audio_web_register_routes(void)
 {
-    httpd_handle_t server = get_httpd_handle();
+    httpd_handle_t server = web_http_get_handle();
     if (server == NULL) return ESP_ERR_INVALID_STATE;
 
     httpd_register_uri_handler(server, &audio_status_uri);

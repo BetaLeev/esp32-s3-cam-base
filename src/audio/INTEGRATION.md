@@ -19,6 +19,18 @@ audio_i2s_play_file("/sdcard/music/test.mp3");
 - ✅ PSRAM 已启用
 - ✅ MAX98357A 音频放大器
 
+### 引脚配置
+
+详细引脚配置请参考 [PINOUT.md](PINOUT.md)：
+
+| 功能 | GPIO | 说明 |
+|------|------|------|
+| BCLK (位时钟) | GPIO2 | I2S Bit Clock |
+| WS (字选择/LRC) | GPIO21 | I2S Word Select |
+| DIN (数据输入) | GPIO47 | I2S Serial Data Input |
+| SD (Shutdown) | GPIO46 | MAX98357 使能引脚，高电平有效 |
+| GAIN (增益) | GPIO0 | 高=9dB，低=6dB |
+
 ## 快速使用
 
 ### 1. 初始化（app_main 中调用）

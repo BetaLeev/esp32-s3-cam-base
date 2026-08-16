@@ -4,7 +4,7 @@
  */
 #include "ai_web.h"
 #include "ai.h"
-#include "web_module.h"
+#include "../web/web_module.h"
 #include "esp_log.h"
 #include "cJSON.h"
 #include <string.h>
