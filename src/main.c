@@ -17,23 +17,24 @@
 #include "lwip/ip_addr.h"
 #include "nvs_flash.h"
 #include "sdcard/sdcard.h"
+#include "web/filesystem/filesystem.h"
+#include "web/web.h"
 #include "wifi/wifi.h"
 #include "wifi/wifi_config.h"
-#include "web/web.h"
-#include "web/filesystem/filesystem.h"
 
-#include "device/servo/servo.h"
-#include "device/motor/motor.h"
+#include "ai/ai.h"
+#include "audio/audio.h"
+#include "audio/audio_simple.h" // 引入异步音频模块头文件
+#include "audio/audio_web.h"
+#include "device/display/display.h"
 #include "device/led/led.h"
+#include "device/motor/motor.h"
 #include "device/pulse/pulse.h"
 #include "device/pulse/pulse_web.h"
-#include "audio/audio.h"
-#include "audio/audio_web.h"
-#include "audio/audio_simple.h" // 引入异步音频模块头文件
+#include "device/servo/servo.h"
 #include "sensors/sensors.h"
 #include "system/system.h"
 #include "video/video.h"
-#include "ai/ai.h"
 
 static const char *TAG = "MAIN";
 #define LOG_TAG TAG
@@ -162,12 +163,21 @@ void app_main(void) {
     MAIN_LOGI(TAG, "固件编译时间: %s", FIRMWARE_BUILD_TIME);
     ESP_EARLY_LOGI("TEST", "app_main entered immediately");
     ESP_EARLY_LOGI("MAIN", ">>> FORCE OUTPUT - app_main entered");
-    
+
     /* 1. 初始化 NVS Flash */
     esp_err_t ret = nvs_flash_init();
     if (ret != ESP_OK) {
         MAIN_LOGE(TAG, "NVS Flash初始化失败: %s", esp_err_to_name(ret));
         return;
+    }
+
+    /* 类似之前初始化的规范添加 OLED 屏幕模块 */
+    ret = display_init();
+    if (ret != ESP_OK) {
+        MAIN_LOGW(TAG, "OLED 显示屏模块初始化失败: %s", esp_err_to_name(ret));
+    } else {
+        MAIN_LOGI(TAG, "OLED 显示屏点亮成功!");
+        display_show_chinese_demo("MAC问题解决专家");
     }
 
     /* 初始化执行器模块（电机 + 舵机） */

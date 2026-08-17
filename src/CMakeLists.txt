@@ -1,29 +1,27 @@
 # ESP-IDF Component CMakeLists.txt
 
-# 源文件列表（排除临时文件）
+# 1. 自动递归获取 src 目录下所有的 .c 和 .cpp 源文件
 FILE(GLOB_RECURSE app_sources
-    ${CMAKE_SOURCE_DIR}/src/*.c
-    ${CMAKE_SOURCE_DIR}/src/*.cpp
-    ${CMAKE_SOURCE_DIR}/src/device/led/*.c
-    ${CMAKE_SOURCE_DIR}/src/device/pulse/*.c
-    ${CMAKE_SOURCE_DIR}/src/device/motor/*.c
-    ${CMAKE_SOURCE_DIR}/src/device/servo/*.c
-    ${CMAKE_SOURCE_DIR}/src/sdcard/*.c
-    ${CMAKE_SOURCE_DIR}/src/sensors/*.c
-    ${CMAKE_SOURCE_DIR}/src/sensors/**/*.c
-    ${CMAKE_SOURCE_DIR}/src/system/*.c
-    ${CMAKE_SOURCE_DIR}/src/wifi/*.c
-    ${CMAKE_SOURCE_DIR}/src/video/*.c
-    ${CMAKE_SOURCE_DIR}/src/audio/*.c
-    ${CMAKE_SOURCE_DIR}/src/audio/*.cpp
-    ${CMAKE_SOURCE_DIR}/src/ai/*.c
-    ${CMAKE_SOURCE_DIR}/src/config/*.c
-    ${CMAKE_SOURCE_DIR}/src/web/*.c
-    ${CMAKE_SOURCE_DIR}/src/web/**/*.c
+    "*.c"
+    "*.cpp"
 )
 
-idf_component_register(SRCS ${app_sources}
-    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+# 2. 自动递归获取 src 目录及所有子目录作为头文件包含路径
+FILE(GLOB_RECURSE include_files "*.h" "*.hpp")
+set(include_dirs "")
+foreach(_file ${include_files})
+    get_filename_component(_dir ${_file} PATH)
+    list(APPEND include_dirs ${_dir})
+endforeach()
+list(REMOVE_DUPLICATES include_dirs)
+
+# 3. 注册组件并关联依赖
+idf_component_register(
+    SRCS 
+        ${app_sources}
+    INCLUDE_DIRS 
+        "."
+        ${include_dirs}
     REQUIRES
         esp_wifi          # WiFi扫描、连接
         esp_netif         # 网络接口
@@ -35,4 +33,5 @@ idf_component_register(SRCS ${app_sources}
         driver            # GPIO、PWM等硬件驱动
         mbedtls           # TLS/SSL加密
         cjson             # JSON 解析
+        u8g2              # 👈 核心修改：链接 U8g2 单色屏图形库
 )

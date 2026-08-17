@@ -138,7 +138,7 @@ esp_err_t audio_web_api_play(httpd_req_t *req)
     path_url_decode(file_path, decoded_path, sizeof(decoded_path));
     free(file_path);
 
-    char full_path[512];
+    char full_path[600];
     if (decoded_path[0] == '/') {
         snprintf(full_path, sizeof(full_path), "%s", decoded_path);
     } else {
