@@ -254,7 +254,7 @@ export const startVideoStream = () => api.post('/video/stream/start')
 export const stopVideoStream = () => api.post('/video/stream/stop')
 
 // ========================================
-// 音频控制 (/api/audio/*)
+// 扬声器/音频播放控制 (/api/audio/*)
 // ========================================
 
 // 获取音频状态
@@ -266,7 +266,8 @@ export async function getAudioStatusSafe() {
     initialized: false,
     state: 'uninit',
     gain: 2,
-    gain_db: 9
+    gain_db: 9,
+    volume: 80
   })
 }
 
@@ -284,9 +285,37 @@ export const setAudioVolume = (volume) => api.post('/audio/volume', { volume })
 
 // 播放TF卡音频文件
 export const playAudioFile = (filePath) => {
-  // URL 编码文件路径（处理中文和特殊字符）
   const encodedPath = encodeURIComponent(filePath)
   return api.post('/audio/play', { file: encodedPath })
 }
+
+// ========================================
+// 麦克风独立控制 (/api/mic/*) 👈【新解耦新增部分】
+// ========================================
+
+// 获取麦克风状态/实时采样大小
+export const getMicStatus = () => api.get('/mic/status')
+
+// 带容错的麦克风状态获取
+export async function getMicStatusSafe() {
+  return safeApiCall(() => api.get('/mic/status'), {
+    initialized: true,
+    testing: false,
+    sound_level: 0
+  })
+}
+// 获取麦克风参数配置
+export const getMicConfig = () => api.get('/mic/config')
+// 设置麦克风参数配置（动态调参防杂音）
+export const setMicConfig = (config) => api.post('/mic/config', config)
+// 开启麦克风测试
+export const startMicTest = () => api.post('/mic/start')
+
+// 停止麦克风测试
+export const stopMicTest = () => api.post('/mic/stop')
+
+
+// 获取设备离线命令词识别结果
+export const getDeviceCommand = () => api.get('/speech/command')
 
 export default api

@@ -2,13 +2,17 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
+// 定义动态主机地址常量
+const TARGET_IP = '192.168.102.158';
+const TARGET_HOST = `http://${TARGET_IP}`;
+
 export default defineConfig({
   plugins: [vue()],
   base: './',
   css: {
     preprocessorOptions: {
       scss: {
-        api: 'legacy',  // 使用旧API模式，抑制弃用警告
+        api: 'legacy',
         silenceDeprecations: ['legacy-js-api', 'import', 'global-builtin', 'color-functions']
       }
     }
@@ -18,11 +22,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://192.168.4.1',
+        target: TARGET_HOST, // 动态使用常量
         changeOrigin: true,
         ws: true,
-        timeout: 600000,         // 请求超时 10 分钟
-        proxyTimeout: 600000,    // 代理超时 10 分钟
+        timeout: 600000,
+        proxyTimeout: 600000,
         configure: (proxy) => {
           proxy.on('proxyReqWs', (proxyReq, req, socket) => {
             console.log('[Vite WS Proxy] 代理 WebSocket 请求')
@@ -36,7 +40,7 @@ export default defineConfig({
         }
       },
       '/fs': {
-        target: 'http://192.168.4.1',
+        target: TARGET_HOST, // 动态使用常量
         changeOrigin: true,
         timeout: 60000
       }

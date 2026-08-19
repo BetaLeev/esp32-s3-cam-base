@@ -109,7 +109,7 @@ esp_err_t audio_disable_output(void);
 esp_err_t audio_set_volume(uint8_t volume);
 uint8_t audio_get_volume_percent(void);
 esp_err_t audio_set_volume_percent(uint8_t volume);
-
+esp_err_t audio_write_raw_data(const uint8_t *data, size_t size);
 #ifdef __cplusplus
 }
 #endif

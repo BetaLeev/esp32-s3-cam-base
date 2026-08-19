@@ -234,7 +234,9 @@ esp_err_t audio_async_deinit(void)
     }
 
     // 发送停止命令
-    async_message_t msg = {.cmd = CMD_STOP};
+    async_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.cmd = CMD_STOP;
     xQueueSend(s_cmd_queue, &msg, 0);
     vTaskDelay(100);
 
@@ -270,7 +272,9 @@ esp_err_t audio_async_play(const char *file_path)
         return ESP_ERR_INVALID_STATE;
     }
 
-    async_message_t msg = {.cmd = CMD_PLAY};
+    async_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.cmd = CMD_PLAY;
     snprintf(msg.data.play.path, sizeof(msg.data.play.path), "%s", file_path);
 
     if (xQueueSend(s_cmd_queue, &msg, pdMS_TO_TICKS(100)) != pdTRUE) {
@@ -293,7 +297,9 @@ esp_err_t audio_async_stop(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    async_message_t msg = {.cmd = CMD_STOP};
+    async_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.cmd = CMD_STOP;
     xQueueSend(s_cmd_queue, &msg, 0);
     return ESP_OK;
 }
@@ -304,7 +310,9 @@ esp_err_t audio_async_pause(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    async_message_t msg = {.cmd = CMD_PAUSE};
+    async_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.cmd = CMD_PAUSE;
     xQueueSend(s_cmd_queue, &msg, 0);
     return ESP_OK;
 }
@@ -315,7 +323,9 @@ esp_err_t audio_async_resume(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    async_message_t msg = {.cmd = CMD_RESUME};
+    async_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.cmd = CMD_RESUME;
     xQueueSend(s_cmd_queue, &msg, 0);
     return ESP_OK;
 }
@@ -327,7 +337,9 @@ void audio_async_set_volume(uint8_t volume)
     if (volume > 100) volume = 100;
     s_volume = volume;
 
-    async_message_t msg = {.cmd = CMD_SET_VOLUME};
+    async_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.cmd = CMD_SET_VOLUME;
     msg.data.volume.volume = volume;
     xQueueSend(s_cmd_queue, &msg, 0);
 }

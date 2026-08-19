@@ -30,8 +30,8 @@
  * ⚠️ GPIO35-37 是 PSRAM 引脚（不可用），GPIO38-40 是 TF 卡引脚（不可用）
  */
 #define GPIO_AUDIO_BCLK       2    /**< 位时钟引脚 - 空闲GPIO */
-#define GPIO_AUDIO_WS         21   /**< 字选择引脚 (LRC) - 空闲GPIO */
-#define GPIO_AUDIO_DIN        47   /**< 串行数据输入引脚 - 空闲GPIO */
+#define GPIO_AUDIO_WS         1   /**< 字选择引脚 (LRC) - 空闲GPIO */
+#define GPIO_AUDIO_DIN        42   /**< 串行数据输入引脚 - 空闲GPIO */
 #define GPIO_AUDIO_SD         46   /**< SD (Shutdown) 引脚 - 必须拉高才能工作 */
 
 /* ========================================
@@ -43,7 +43,7 @@
 #define AUDIO_DEFAULT_BCLK    GPIO_AUDIO_BCLK
 #define AUDIO_DEFAULT_WS      GPIO_AUDIO_WS
 #define AUDIO_DEFAULT_DIN     GPIO_AUDIO_DIN
-#define AUDIO_DEFAULT_GAIN    14   /**< 增益控制引脚 - GPIO14 (避免使用GPIO0) */
+#define AUDIO_DEFAULT_GAIN    GPIO_NUM_NC   /**< 增益控制引脚 - */
 #define AUDIO_DEFAULT_SD      GPIO_AUDIO_SD /**< SD (Shutdown) 引脚 */
 
 /* ========================================

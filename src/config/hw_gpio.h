@@ -14,9 +14,9 @@
  * @brief TB6612 电机驱动引脚
  * - STBY 引脚已硬件连接到 3.3V
  */
-#define GPIO_MOTOR_PWMA GPIO_NUM_1
-#define GPIO_MOTOR_AIN1 GPIO_NUM_2
-#define GPIO_MOTOR_AIN2 GPIO_NUM_42
+#define GPIO_MOTOR_PWMA GPIO_NUM_NC
+#define GPIO_MOTOR_AIN1 GPIO_NUM_NC
+#define GPIO_MOTOR_AIN2 GPIO_NUM_NC
 
 /* ========================================
  * 传感器引脚
@@ -38,7 +38,7 @@
  * - 现 GPIO45 → 空闲普通GPIO (strapping 引脚，启动后可用)
  *   注意：若硬件未连接 DHT11，读取会超时但不影响系统运行
  */
-#define GPIO_DHT11 GPIO_NUM_45
+#define GPIO_DHT11 GPIO_NUM_NC
 
 /**
  * @brief ADC 传感器
@@ -64,7 +64,7 @@
  * @brief 舵机控制引脚 (SG90) - GPIO48
  * GPIO48 是可用的引脚
  */
-#define GPIO_SERVO GPIO_NUM_48
+#define GPIO_SERVO GPIO_NUM_NC
 
 /**
  * @brief 执行器可用GPIO列表（供动态配置使用）
@@ -93,7 +93,7 @@
  * I2C 引脚 (预留 - OLED, IMU 等)
  * ⚠️ 原 GPIO42 与电机 AIN2 冲突，已改为 GPIO46
  * ======================================== */
-#define GPIO_I2C_SCL GPIO_NUM_41
+#define GPIO_I2C_SCL GPIO_NUM_NC
 #define GPIO_I2C_SDA GPIO_NUM_46
 
 /* ========================================

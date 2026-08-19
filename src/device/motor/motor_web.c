@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static const char *TAG = "MOTOR_WEB";
+static const char *TAG __attribute__((unused)) = "MOTOR_WEB";
 
 /**
  * @brief 解析URL查询参数

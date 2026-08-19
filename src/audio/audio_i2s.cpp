@@ -59,7 +59,6 @@ static audio_i2s_info_t s_info = {
 };
 static uint8_t s_volume = 80;  // 0-100
 static bool s_initialized = false;
-static bool s_stop_requested = false;
 
 // ============================================================================
 // 后台播放任务
@@ -205,7 +204,9 @@ esp_err_t audio_i2s_deinit(void)
     }
 
     // 发送停止命令
-    audio_i2s_message_t msg = {.cmd = CMD_STOP};
+    audio_i2s_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.cmd = CMD_STOP;
     xQueueSend(s_cmd_queue, &msg, 0);
 
     // 等待任务结束
@@ -242,7 +243,9 @@ esp_err_t audio_i2s_play_file(const char *file_path)
         return ESP_ERR_INVALID_STATE;
     }
 
-    audio_i2s_message_t msg = {.cmd = CMD_PLAY_FILE};
+    audio_i2s_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.cmd = CMD_PLAY_FILE;
     snprintf(msg.path, sizeof(msg.path), "%s", file_path);
 
     // 非阻塞发送
@@ -274,7 +277,9 @@ esp_err_t audio_i2s_stop(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    audio_i2s_message_t msg = {.cmd = CMD_STOP};
+    audio_i2s_message_t msg;
+    memset(&msg, 0, sizeof(msg));
+    msg.cmd = CMD_STOP;
     xQueueSend(s_cmd_queue, &msg, 0);
 
     return ESP_OK;

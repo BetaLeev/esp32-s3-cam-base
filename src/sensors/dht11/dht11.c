@@ -56,14 +56,14 @@ static esp_err_t read_raw(uint8_t *raw_data)
     }
 
     // 发送起始信号
-    gpio_set_direction(s_gpio, GPIO_MODE_OUTPUT_OD);
-    gpio_set_level(s_gpio, 0);
+    // gpio_set_direction(s_gpio, GPIO_MODE_OUTPUT_OD);
+    // gpio_set_level(s_gpio, 0);
     delay_us(20000);  // 拉低 >= 18ms
-    gpio_set_level(s_gpio, 1);
+    // gpio_set_level(s_gpio, 1);
     delay_us(30);    // 主机释放总线
 
     // 切换到输入模式
-    gpio_set_direction(s_gpio, GPIO_MODE_INPUT);
+    // gpio_set_direction(s_gpio, GPIO_MODE_INPUT);
 
     // 等待 DHT11 响应
     int timeout = 200;

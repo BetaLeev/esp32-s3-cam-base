@@ -9,7 +9,7 @@
 
 #include "esp_err.h"
 #include "esp_http_server.h"
-
+esp_err_t ai_ws_send_text_if_connected(const char *data);
 /**
  * @brief 注册 AI WebSocket 路由
  */

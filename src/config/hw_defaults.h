@@ -21,8 +21,8 @@
  * GPIO 默认值
  * ======================================== */
 #define DEFAULT_GPIO_MOTOR_PWMA      1
-#define DEFAULT_GPIO_MOTOR_AIN1      2
-#define DEFAULT_GPIO_MOTOR_AIN2      42
+#define DEFAULT_GPIO_MOTOR_AIN1      -1
+#define DEFAULT_GPIO_MOTOR_AIN2      -1
 #define DEFAULT_GPIO_DHT11           4
 #define DEFAULT_GPIO_SERVO           48
 #define DEFAULT_GPIO_THERMISTOR      5

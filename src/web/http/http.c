@@ -9,17 +9,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "audio/audio_web.h"
+esp_err_t mic_web_init(void);
+
 static const char *TAG = "WEB_HTTP";
 static httpd_handle_t s_http_handle = NULL;
 
-/* 获取 HTTP 服务器句柄 */
 httpd_handle_t web_http_get_handle(void) {
     return s_http_handle;
 }
 
-/* 静态文件处理 Handler */
 static esp_err_t wildcard_handler(httpd_req_t *req) {
-    // 1. 处理 API 请求未注册的情况
     if (strncmp(req->uri, "/api/", 5) == 0) {
         httpd_resp_set_type(req, "application/json");
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND,
@@ -27,11 +27,8 @@ static esp_err_t wildcard_handler(httpd_req_t *req) {
         return ESP_OK;
     }
 
-    // 2. 拦截 iOS / Android 强制门户探活，防止 Safari 弹出 Captive 页面
     if (strstr(req->uri, "hotspot-detect.html") || strstr(req->uri, "canonical.html") ||
         strstr(req->uri, "generate_204")) {
-
-        // 返回成功标识，告知 iOS 当前网络正常，无需弹窗
         httpd_resp_set_type(req, "text/html");
         httpd_resp_send(req, "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>",
                         HTTPD_RESP_USE_STRLEN);
@@ -40,8 +37,6 @@ static esp_err_t wildcard_handler(httpd_req_t *req) {
 
     char filepath[256] = {0};
     const char *uri = req->uri;
-
-    // 剥离 Query 参数
     const char *quest = strchr(uri, '?');
     size_t uri_len = quest ? (size_t)(quest - uri) : strlen(uri);
 
@@ -62,22 +57,18 @@ static esp_err_t wildcard_handler(httpd_req_t *req) {
 
     return web_filesystem_serve_file(req, filepath);
 }
-/**
- * @brief 初始化 HTTP 服务器
- */
+
 esp_err_t web_http_init(void) {
     ESP_LOGI(TAG, "初始化 HTTP 服务器...");
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = 80;
-
-    // ---- 优化 Socket 资源，解决 error (23) ----
     config.stack_size = 10240;
-    config.max_open_sockets = 7;   // 适当增加 Socket 句柄（默认 7）
-    config.lru_purge_enable = true; // 开启 LRU 机制：Socket 满时自动清理老旧闲置连接
-    config.recv_wait_timeout = 5;   // 降低接收超时时间，加速 Socket 回收
-    config.send_wait_timeout = 5;   // 降低发送超时时间
-    config.max_uri_handlers = 64;
+    config.max_open_sockets = 7;
+    config.lru_purge_enable = true;
+    config.recv_wait_timeout = 5;
+    config.send_wait_timeout = 5;
+    config.max_uri_handlers = 128;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     esp_err_t ret = httpd_start(&s_http_handle, &config);
@@ -88,7 +79,6 @@ esp_err_t web_http_init(void) {
 
     ESP_LOGI(TAG, "HTTP 服务器已启动，开始注册 API 路由...");
 
-/* 1. 注册所有模块的 API 路由 */
 #include "wifi/wifi_web.h"
     wifi_web_register_routes(s_http_handle);
 
@@ -137,7 +127,11 @@ esp_err_t web_http_init(void) {
 #include "ai/ai_ws.h"
     ai_ws_register_routes(s_http_handle);
 
-    /* 2. 注册静态资源通配路由 (匹配所有未被上面 API 覆盖的 GET 请求) */
+    // 核心：在注册 /* 之前，集中注册音频与麦克风 Web 接口
+    audio_web_init();
+    mic_web_init();
+
+    // 静态资源通配路由
     httpd_uri_t static_uri = {
         .uri = "/*", .method = HTTP_GET, .handler = wildcard_handler, .user_ctx = NULL};
     ret = httpd_register_uri_handler(s_http_handle, &static_uri);
@@ -147,9 +141,6 @@ esp_err_t web_http_init(void) {
     return ESP_OK;
 }
 
-/**
- * @brief 反初始化 HTTP 服务器
- */
 esp_err_t web_http_deinit(void) {
     if (s_http_handle != NULL) {
         httpd_stop(s_http_handle);

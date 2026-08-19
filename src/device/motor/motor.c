@@ -34,8 +34,12 @@ static void soft_start_motor(uint8_t target_speed)
 {
     if (target_speed == 0) return;
 
-    gpio_set_level(MOTOR_AIN1_PIN, 1);
-    gpio_set_level(MOTOR_AIN2_PIN, 0);
+    if (MOTOR_AIN1_PIN != GPIO_NUM_NC && MOTOR_AIN1_PIN >= 0) {
+        gpio_set_level(MOTOR_AIN1_PIN, 1);
+    }
+    if (MOTOR_AIN2_PIN != GPIO_NUM_NC && MOTOR_AIN2_PIN >= 0) {
+        gpio_set_level(MOTOR_AIN2_PIN, 0);
+    }
 
     // 全速启动 150ms 克服静摩擦
     uint32_t duty_full = LEDC_MOTOR_DUTY_MAX;
@@ -81,8 +85,12 @@ esp_err_t motor_pump_set_gear(pump_gear_t gear)
         ESP_LOGI(TAG, "水泵档位: %s, 速度: %d%%", motor_pump_get_gear_name(gear), speed);
     } else {
         ledc_stop(LEDC_MOTOR_MODE, LEDC_MOTOR_CHANNEL, 0);
-        gpio_set_level(MOTOR_AIN1_PIN, 0);
-        gpio_set_level(MOTOR_AIN2_PIN, 0);
+        if (MOTOR_AIN1_PIN != GPIO_NUM_NC && MOTOR_AIN1_PIN >= 0) {
+            gpio_set_level(MOTOR_AIN1_PIN, 0);
+        }
+        if (MOTOR_AIN2_PIN != GPIO_NUM_NC && MOTOR_AIN2_PIN >= 0) {
+            gpio_set_level(MOTOR_AIN2_PIN, 0);
+        }
 
         s_motor_speed = 0;
         g_system_status.pump_state = 0;
@@ -147,8 +155,12 @@ esp_err_t motor_stop(void)
     if (xSemaphoreTake(s_motor_mutex, pdMS_TO_TICKS(100)) != pdTRUE) return ESP_ERR_TIMEOUT;
     s_pump_gear = PUMP_OFF;
     ledc_stop(LEDC_MOTOR_MODE, LEDC_MOTOR_CHANNEL, 0);
-    gpio_set_level(MOTOR_AIN1_PIN, 0);
-    gpio_set_level(MOTOR_AIN2_PIN, 0);
+    if (MOTOR_AIN1_PIN != GPIO_NUM_NC && MOTOR_AIN1_PIN >= 0) {
+        gpio_set_level(MOTOR_AIN1_PIN, 0);
+    }
+    if (MOTOR_AIN2_PIN != GPIO_NUM_NC && MOTOR_AIN2_PIN >= 0) {
+        gpio_set_level(MOTOR_AIN2_PIN, 0);
+    }
 
     g_system_status.pump_state = 0;
     g_system_status.pump_speed = 0;
@@ -180,46 +192,57 @@ esp_err_t motor_init(void)
         return ESP_FAIL;
     }
 
-    gpio_config_t io_conf_ain1 = {
-        .pin_bit_mask = (1ULL << MOTOR_AIN1_PIN),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
-    gpio_config(&io_conf_ain1);
+    if (MOTOR_AIN1_PIN != GPIO_NUM_NC && MOTOR_AIN1_PIN >= 0) {
+        gpio_config_t io_conf_ain1 = {
+            .pin_bit_mask = (MOTOR_AIN1_PIN >= 0) ? (1ULL << MOTOR_AIN1_PIN) : 0ULL,
+            .mode = GPIO_MODE_OUTPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE
+        };
+        gpio_config(&io_conf_ain1);
+        gpio_set_level(MOTOR_AIN1_PIN, 0);
+    } else {
+        ESP_LOGW(TAG, "MOTOR_AIN1_PIN 未配置，跳过 GPIO 配置");
+    }
 
-    gpio_config_t io_conf_ain2 = {
-        .pin_bit_mask = (1ULL << MOTOR_AIN2_PIN),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
-    gpio_config(&io_conf_ain2);
+    if (MOTOR_AIN2_PIN != GPIO_NUM_NC && MOTOR_AIN2_PIN >= 0) {
+        gpio_config_t io_conf_ain2 = {
+            .pin_bit_mask = (MOTOR_AIN2_PIN >= 0) ? (1ULL << MOTOR_AIN2_PIN) : 0ULL,
+            .mode = GPIO_MODE_OUTPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE
+        };
+        gpio_config(&io_conf_ain2);
+        gpio_set_level(MOTOR_AIN2_PIN, 0);
+    } else {
+        ESP_LOGW(TAG, "MOTOR_AIN2_PIN 未配置，跳过 GPIO 配置");
+    }
 
-    gpio_set_level(MOTOR_AIN1_PIN, 0);
-    gpio_set_level(MOTOR_AIN2_PIN, 0);
+    if (MOTOR_PWMA_PIN != GPIO_NUM_NC && MOTOR_PWMA_PIN >= 0) {
+        ledc_timer_config_t ledc_timer = {
+            .speed_mode = LEDC_MOTOR_MODE,
+            .timer_num = LEDC_MOTOR_TIMER,
+            .freq_hz = LEDC_MOTOR_FREQUENCY,
+            .duty_resolution = LEDC_MOTOR_DUTY_RES,
+            .clk_cfg = LEDC_AUTO_CLK
+        };
+        ledc_timer_config(&ledc_timer);
 
-    ledc_timer_config_t ledc_timer = {
-        .speed_mode = LEDC_MOTOR_MODE,
-        .timer_num = LEDC_MOTOR_TIMER,
-        .freq_hz = LEDC_MOTOR_FREQUENCY,
-        .duty_resolution = LEDC_MOTOR_DUTY_RES,
-        .clk_cfg = LEDC_AUTO_CLK
-    };
-    ledc_timer_config(&ledc_timer);
-
-    ledc_channel_config_t ledc_channel = {
-        .speed_mode = LEDC_MOTOR_MODE,
-        .channel = LEDC_MOTOR_CHANNEL,
-        .timer_sel = LEDC_MOTOR_TIMER,
-        .gpio_num = MOTOR_PWMA_PIN,
-        .duty = 0,
-        .hpoint = 0
-    };
-    ledc_channel_config(&ledc_channel);
-    ledc_stop(LEDC_MOTOR_MODE, LEDC_MOTOR_CHANNEL, 0);
+        ledc_channel_config_t ledc_channel = {
+            .speed_mode = LEDC_MOTOR_MODE,
+            .channel = LEDC_MOTOR_CHANNEL,
+            .timer_sel = LEDC_MOTOR_TIMER,
+            .gpio_num = MOTOR_PWMA_PIN,
+            .duty = 0,
+            .hpoint = 0
+        };
+        ledc_channel_config(&ledc_channel);
+        ledc_stop(LEDC_MOTOR_MODE, LEDC_MOTOR_CHANNEL, 0);
+    } else {
+        ESP_LOGW(TAG, "MOTOR_PWMA_PIN 未配置，跳过 PWM 初始化");
+    }
 
     ESP_LOGI(TAG, "电机模块初始化完成");
     return ESP_OK;
